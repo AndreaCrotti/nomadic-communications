@@ -22,4 +22,9 @@ Whenever you create a new file just
 andreaMb:labs andrea$ touch file
 andreaMb:labs andrea$ git add file
 
-And when you have finished your editing session
+And when you have finished your editing session you can commit. Committing is just done on your own repository, when you want to load your work on the repository you need to "push".
+
+For pushing git can use ssh or the git protocol. To use ssh you just need to create a key and load it, so git can automatically log and apply the changes without applying any password.
+
+Just follow those istructions
+http://github.com/guides/providing-your-ssh-key
