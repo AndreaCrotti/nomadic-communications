@@ -1,0 +1,237 @@
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50277 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec  0.942 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50278 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-20.1 sec  1.25 MBytes    522 Kbits/sec  2.992 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50279 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-30.3 sec  1.25 MBytes    347 Kbits/sec  4.396 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50280 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-40.4 sec  1.25 MBytes    260 Kbits/sec  1.184 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50281 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-50.4 sec  1.25 MBytes    208 Kbits/sec  1.299 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50282 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-60.5 sec  1.25 MBytes    173 Kbits/sec  0.906 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50283 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-70.6 sec  1.25 MBytes    149 Kbits/sec  2.196 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50284 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-80.8 sec  1.25 MBytes    130 Kbits/sec  4.121 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50285 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-92.7 sec  1.25 MBytes    113 Kbits/sec  5.219 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50286 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-104.3 sec  1.25 MBytes    101 Kbits/sec  4.975 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50287 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-11.6 sec  1.25 MBytes    904 Kbits/sec  8.769 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50288 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50289 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-34.2 sec  1.25 MBytes    307 Kbits/sec  1.902 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50290 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-44.3 sec  1.25 MBytes    237 Kbits/sec  1.784 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50291 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-54.4 sec  1.25 MBytes    193 Kbits/sec  0.604 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50292 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-64.5 sec  1.25 MBytes    163 Kbits/sec  1.657 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50293 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-74.6 sec  1.18 MBytes    133 Kbits/sec  0.210 ms   50/  893 (5.6%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50294 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-84.7 sec  1.25 MBytes    124 Kbits/sec  0.907 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50295 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-94.8 sec  1.25 MBytes    111 Kbits/sec  0.955 ms    0/  893 (0%)
+------------------------------------------------------------
+Client connecting to 192.168.10.30, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.10.129 port 50296 connected with 192.168.10.30 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-104.9 sec  1.25 MBytes    100 Kbits/sec  1.755 ms    0/  893 (0%)
