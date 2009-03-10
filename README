@@ -1,30 +1,3 @@
-Before everything else install git, on linux and macosx it's very easy and it also comes with a nice gui, "git gui" to open it.
-After set some global variables, so you don't need to write them for every commit.
+This project is about testing network performances with different wireless devices and configurations.
 
-$ git config --global user.name "Your Name Comes Here"
-$ git config --global user.email you@yourdomain.example.com
-
-Which globally sets your name and email for your user. (in $HOME/.gitconfig)
-
-To checkout our repository just execute this command (using http it works everywhere even with proxies):
-
-andreaMb:nomadic andrea$ git clone http://github.com/AndreaCrotti/nomadic-communications.git
-Initialized empty Git repository in /Users/andrea/nomadic/nomadic-communications/.git/
-got e5d818772797e05d86ed94be97d77a506a1f3ae1
-walk e5d818772797e05d86ed94be97d77a506a1f3ae1
-got 543b9bebdc6bd5c4b22136034a95dd097a57d3dd
-got e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
-
-As you see it creates the whole repository in the directory "nomadic-communications"
-Now you can start editing or creating new files.
-Whenever you create a new file just
-
-andreaMb:labs andrea$ touch file
-andreaMb:labs andrea$ git add file
-
-And when you have finished your editing session you can commit. Committing is just done on your own repository, when you want to load your work on the repository you need to "push".
-
-For pushing git can use ssh or the git protocol. To use ssh you just need to create a key and load it, so git can automatically log and apply the changes without applying any password.
-
-Just follow those istructions
-http://github.com/guides/providing-your-ssh-key
+Results are then statistically analyzed and there will be 2 relations (in latex) explaining the results.
