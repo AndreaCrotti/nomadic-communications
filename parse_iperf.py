@@ -7,11 +7,6 @@ import time
 import shelve
 import os
 
-# right regular expression in shell (word boundary)
-# grep '\<ms\>' result.txt
-
-line = "[  3]  0.0-80.8 sec  1.25 MBytes    130 Kbits/sec  4.121 ms    0/  893 (0%)"
-# num with comma
 NUM = re.compile(r"(\d+)(?:\.(\d+))?")
 
 class IperfOutput(object):
@@ -25,29 +20,37 @@ class IperfOutput(object):
         Output from plain mode or csv is pretty different (no jutter in csv)
 
         Doc test to verify that output is correct
-        >>> IperfOutput(["[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec  1.496 ms    0/  893 (0%)"], "").result
+        # >>> IperfOutput(["[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec  1.496 ms    0/  893 (0%)"], "").result
         [[10.0, 1.0, 1.0, 6.0, 0, 893, 0]]
     """
-
     
-    def __init__(self, text, conf, value = 'kbs', format='PLAIN'):
-        """text is an open file in read mode"""
-        self.idxToName = {
-            2 : "time",
-            3 : "mb",
-            4 : "kbs",
-            5 : "ms",
-            6 : "miss",
-            7 : "rx",
-            8 : "cent"
+    def __init__(self, conf = IperfConf("hostname"), value = 'kbs', format='PLAIN'):
+        """Parser of iperf output, must manage every possible output,
+        for example csv/not csv and double test mode
+        Using the default Iperf configuration in none passed"""
+        # first plain and second csv mode
+        self.positions = {
+            "bs"        : (4, 8),
+            "jitter"    : (5, 9),
+            "missed"    : (6, 10),
+            "total"     : (7, 11)
         }
-        # creating the inverse dictionary
-        self.nameToIdx = dict(zip(self.idxToName.values(), self.idxToName.keys()))        
-        self.text = text
+        # creating inverse lookups dictionaries for the two possible formats
+        toIdx = lambda n: dict(zip([x[n] for x in self.positions.values()], self.positions.keys()))
+        self.toPlainIdx = toIdx(0)
+        self.toCsvIdx = toIdx(1)
+
         self.format = format
         self.conf = conf
         self.result = []
     
+    def parseString(self, line):
+        """Parsing a single result"""
+        if self.format == 'PLAIN':
+            return self.parsePlain(line)
+        elif self.format == 'CSV':
+            return self.parseCsv(line)
+
     def nextResult(self):
         for line in self.text.xreadlines():
             if self.format == 'PLAIN':
@@ -67,20 +70,44 @@ class IperfOutput(object):
         """parsing the plain structure"""
         num = re.compile(r"(\d+)(?:\.(\d+))?")
         values = num.findall(line)
-        valList = []
-        for c in self.idxToName.iterkeys():
-            valList.append(toFlat(values[c]))
-        return valList
-        
+        result = {}
+        for c in self.toPlainIdx.iterkeys():
+            result[self.toPlainIdx[c]] = toFlat(values[c])
+        return result
+    
     def parseCsv(self, line):
-        """Same thing but much easier"""
-        return self.text.split(',')
+        """Same thing but much easier, getting a big number"""
+        positions = {
+            0  : 'start',
+            8  : 'bytes/sec',
+            9  : 'jitter',
+            10 : 'lost',
+            11 : 'total'
+        }
+        # taking only the last line
+        values = line[-1].strip().split(',')  # this has length 14
+        result = {}
+        for x in positions.iterkeys():
+            result[positions[x]] = values[x]
+        return result
+
+class Size:
+    """Class representing the size of an object"""
+    def __init__(self, num, dim = 'bytes'):    
+        self.num = num
+        self.dic = {
+                'bytes'  : 1,
+                'kbytes' : 1024 * 1024,
+                'mbytes' : 1024 * 1024 * 1024,
+                'gbytes' : 1024 * 1024 * 1024 * 1024
+            }
+
 
 class Opt:
     """General class for options"""
     def __init__(self, name, value):
         self.name = name
-        self.iter_set(value)
+        self.set(value)
     
     def iter_set(self, value):
         while True:
@@ -110,18 +137,12 @@ class BoolOpt(Opt):
     def __init__(self, name):
         Opt.__init__(self, name, True)
 
-    def swap(self):
-        """swap status"""
-        self.value = not self.value
-    
-    def on(self):
-        """turn on variable"""
-        self.value = True
-    
-    def off(self):
-        """turn off variable"""
-        self.value = False
-    
+    def __repr__(self):
+        if self.value:
+            return self.name
+        else:
+            return ""
+
     # FIXME in interactive way it gets crazy with booleans
     def valid(self, value):
         return value in (True, False)
@@ -130,7 +151,8 @@ class BoolOpt(Opt):
         return "must be True or False"
 
 class ConstOpt(Opt):
-    """Constant option, when you just have one possible value"""
+    """Constant option, when you just have one possible value
+    It optionally takes a regular expression used to check if input is syntactically correct"""
     def __init__(self, name, value, regex = None):
         self.regex = regex
         Opt.__init__(self, name, value)
@@ -139,7 +161,7 @@ class ConstOpt(Opt):
         return not(self.regex) or re.match(self.regex, value)
     
     def choices(self):
-        return "must satisfy " + regex
+        return "must satisfy " + self.regex
             
         
 class ParamOpt(Opt):
@@ -155,25 +177,6 @@ class ParamOpt(Opt):
     def choices(self):
         return "must be in list: " + ', '.join(map(str, self.valList))
 
-    def rand_config(self):
-        """gets a random choice"""
-        from random import choice
-        self.value = choice(self.valList)
-
-    def next_config(self):
-        """get the next possible configuration"""
-        self.value = self.valList[(self.valList.index(self.value) + 1) % len(self.valList)]
-
-class Size:
-    """docstring for Size"""
-    def __init__(self, num, idx):
-        self.num = num
-        self.idx = idx
-    
-    def toM(self):
-        """to megabytes"""
-        pass
-    
 
 class Plotter:
     """General plotter of data in array format
@@ -184,7 +187,7 @@ class Plotter:
         self.items = []
         self.last = []
         self.maxGraphs = maxGraphs
-        self.plotter = Gnuplot.Gnuplot()
+        self.plotter = Gnuplot.Gnuplot(persist = 1)
     
     def addData(self, data, name):
         """Add another data set"""
@@ -207,38 +210,6 @@ class Plotter:
             self.items[-1] = new
         self.plot()
 
-def testPlotter():
-    """docstring for testPlotter"""
-    import random
-    p = Plotter("test")
-    # using * to autoscale one of the variables
-    p.plotter.set_range('yrange', '[0:*]')
-    p.addData([50 + random.randrange(5)], "random")
-    for x in range(100):
-        p.update([50 + random.randrange(5)])
-        time.sleep(0.05)
-    p.addData([30 + random.randrange(20)], "random2")
-    for x in range(100):
-        p.update([30 + random.randrange(20)])
-        time.sleep(0.05)
-        
-    p.addData([20 + random.randrange(5)], "random3")
-    for x in range(100):
-        p.update([20 + random.randrange(5)])
-        time.sleep(0.05)
-        
-def iperfAnalyzer():
-    """Generates the configuration, executes the program and plot it"""
-    iperf = Plotter("iperf output")
-    for count in range(10):
-        i = IperfConf("lts")
-        cmd = "iperf " + str(IperfConf("lts"))
-        # print cmd
-        _, w, _ = os.popen3(cmd)
-        out = IperfOutput(w, {})
-        for x in out.nextResult():
-            print x, "\t",  out.result
-            iperf.update([x])
     
 
 class Conf:
@@ -281,23 +252,27 @@ class Conf:
     def set(self, option, value):
         """ValueError raised if out of range"""
         self.conf[option].set(value)
-        
 
             
 class IperfConf(Conf):
     """Iperf configurator"""
     def __init__(self, hostname):
         self.hostname = hostname
-        udp = BoolOpt("-u")
-        band = ParamOpt("-b", 1, [1,2,10])
-        dual = BoolOpt("-d")
-        host = ParamOpt("-c", self.hostname, [self.hostname])
-        time = ParamOpt("-t", 10, [10, 20, 30])
-        conf = [udp, band, dual, host]
-        Conf.__init__(self, conf)
-
-
-speed = [1, 2, 5.5, 11]
+        self.conf = {
+            "udp"   : BoolOpt("-u"),
+            "band"  : ParamOpt("-b", 1, [1, 2, 5.5, 11]),
+            "dual"  : BoolOpt("-d"),
+            "host"  : ConstOpt("-c", self.hostname),
+            "time"  : ParamOpt("-t", 20, [20,30,40]),
+            "csv"   : ConstOpt("-y", "c")
+        }
+        Conf.__init__(self, self.conf)
+    
+    def __repr__(self):
+        return ' '.join([el.__repr__() for el in self.conf.values()])
+    
+    def __str__(self):
+        return self.__repr__()
 
 linksys = {
     "ssid" : "NCB",
