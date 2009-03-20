@@ -1,4 +1,4 @@
-SERVER=192.168.10.30
+SERVER=192.168.10.30 # pwd = students
 NCB=192.168.10.5
 NCG=192.168.10.10
 NCL=192.168.10.15
@@ -6,3 +6,5 @@ NCL=192.168.10.15
 # NCB = (admin, Cisco) 13
 # NCG = () 7
 # NCL = ("", admin) 1
+
+NCL : RTS threshold = 2346 (256 : 2346), FRAG = 0 (256 : 2346), TRATE = 36

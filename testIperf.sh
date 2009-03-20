@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # possible parameters are
 # we set the options and run NTEST for every possible
-HOST=192.168.10.30
-CMD="sudo iperf -u -c $HOST"
-RESULT="result.txt"
-NTEST=20
 
-for (( i = 0; i < 20; i++ )); do
+source datas
+CMD="iperf -u -c $SERVER"
+RESULT="result${date +%d-%M-%H-%m-%s}.txt"
+NTEST=10
+
+for (( i = 0; i < NTEST; i++ )); do
   $CMD >> $RESULT
 done

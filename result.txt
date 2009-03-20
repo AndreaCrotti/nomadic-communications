@@ -124,7 +124,7 @@ Sending 1470 byte datagrams
 UDP buffer size: 9.00 KByte (default)
 ------------------------------------------------------------
 [  3] local 192.168.10.129 port 50287 connected with 192.168.10.30 port 5001
-[ ID] Interval       Transfer     Bandwidth
+[ ID] Interval       Transfer      Bandwidth
 [  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
 [  3] Sent 893 datagrams
 [  3] Server Report:
