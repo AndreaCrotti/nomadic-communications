@@ -17,50 +17,62 @@ class IperfOutput(object):
         20090314193213,172.16.201.1,63132,172.16.201.131,5001,3,0.0-10.0,1312710,1048592
         20090314193213,172.16.201.131,5001,172.16.201.1,63132,3,0.0-10.0,1312710,1049881,0.838,0,893,0.000,0
         
-        Output from plain mode or csv is pretty different (no jutter in csv)
-
-        Doc test to verify that output is correct
-        # >>> IperfOutput(["[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec  1.496 ms    0/  893 (0%)"], "").result
-        [[10.0, 1.0, 1.0, 6.0, 0, 893, 0]]
+        The philosophy behind this output analyzer is:
+        "keep everything return only what's needed"
     """
     
-    def __init__(self, conf = {}, value = 'kbs', format='PLAIN'):
+    def __init__(self, value = 'bs', format = 'CSV'):
         """Parser of iperf output, must manage every possible output,
         for example csv/not csv and double test mode
         Using the default Iperf configuration in none passed"""
-        # first plain and second csv mode
-        self.positions = {
-            "bs"        : (4, 8),
-            "jitter"    : (5, 9),
-            "missed"    : (6, 10),
-            "total"     : (7, 11)
-        }
+        
+        self.fromIdx = dict(zip(self.positions.values(), self.positions.keys()))
+        self.value = value
         # creating inverse lookups dictionaries for the two possible formats
-        toIdx = lambda n: dict(zip([x[n] for x in self.positions.values()], self.positions.keys()))
-        self.toPlainIdx = toIdx(0)
-        self.toCsvIdx = toIdx(1)
         self.format = format
-        # In this way I can set
-        if self.format == 'PLAIN':
-            self.dic = self.toPlainIdx
-        elif self.format == 'CSV':
-            self.dic = self.toCsvIdx
 
     def parseLine(self, line):
         """parse a single line"""
         result = {}
-        if self.format == 'PLAIN':
-            num = re.compile(r"(\d+)(?:\.(\d+))?")
-            values = num.findall(line)
-        if self.format == 'CSV':
-            values = line[-1].strip().split(',')
-        
-        print "values found ", values
-        # This way this works for both
-        for el in self.dic.iterkeys():
-            result[self.dic[el]] = toFlat(values[el])
+        values = self.get_values(line)
+        for el in self.fromIdx.iterkeys():
+            result[self.fromIdx[el]] = values[el]
+        return result
+    
+    def parseFile(self, filename):
+        """parsing a file"""
+        result = []
+        for line in open(filename):
+            result.append(self.parseLine(line)[self.value])
         return result
 
+class IperfOutCsv(IperfOutput):
+    """Handling iperf output in csv mode"""
+    def __init__(self):
+        self.positions = {
+            "bs" : 8, "jitter" : 9, "missed" : 10, "total" : 11
+        }
+        IperfOutput.__init__(self, format = 'CSV')
+        
+
+    def get_values(self, line):
+        return line.strip().split(',')
+        
+        
+class IperfOutPlain(IperfOutput):
+    """Handling iperf not in csv mode"""
+    def __init__(self):
+        self.positions = {
+            "bs" : 4, "jitter" : 5, "missed" : 6, "total" : 7
+        }
+        IperfOutput.__init__(self, format = 'PLAIN')
+
+    def get_values(self, line):
+        num = re.compile(r"(\d+)(?:\.(\d+))?")
+        nums = num.findall(line)
+        # TODO implementing such a function to work correctly with float values
+        values = map(fun, nums)
+        
 
 class Opt:
     """General class for options, generates a ValueError exception whenever
@@ -90,7 +102,8 @@ class Opt:
         return self.__repr__()
 
     def __eq__(self, other):
-        return self.name == other.name and self.value == other.value
+        """checking equality of option types, also type must be equal"""
+        return type(self) == type(other) and self.name == other.name and self.value == other.value
 
     def set(self, value):
         """Setting the value only if validity check is passed"""
@@ -146,9 +159,11 @@ class ParamOpt(Opt):
         return "must be in list: " + ', '.join(map(str, self.valList))
 
 class Plotter:
-    """General plotter of data in array format
-    maxGraphs indicates the maximum number of "functions" to be plotted
-    at the same time"""
+    """
+        General plotter of data in array format
+        maxGraphs indicates the maximum number of "functions" to be plotted
+        at the same time
+    """
     def __init__(self, title, maxGraphs = 2):
         self.title = title
         self.items = []
@@ -176,8 +191,6 @@ class Plotter:
         else:
             self.items[-1] = new
         self.plot()
-
-    
 
 class Conf:
     # remind that boolean options are set to true by default
@@ -258,7 +271,6 @@ class Conf:
             else:
                 print "selected %d" % num
 
-
 class SectionConf:
     """Configuration class, working on a dictionary of
     configurations parameters
@@ -274,7 +286,8 @@ class SectionConf:
     
     def __str__(self):
         return self.__repr__()
-        
+    
+    # FIXME not working, doesn't get the right thing
     def changed(self):
         """Defining the minus operator on configurations"""
         changed = {}
@@ -283,30 +296,3 @@ class SectionConf:
             if self.conf[key] != val:
                 changed[key] = self.conf[key]
         return changed
-
-class ApConf(object):
-    """Configuration of an access point"""
-    def __init__(self, arg):
-        super(ApConf, self).__init__()
-
-def makeOptions(opts):
-    """Creating the option key for the dictionary, opts must be a dictionary of options"""
-    return (sys.platform, opts, {})
-
-# opts must contain {"client" : {...}, "ap" : {...}}
-    
-
-def toFlat(tup):
-    """tuple to float
-    # >>> toFlat((1,10))
-    # 1.10
-    """
-    if tup[1] == '':
-        return int(tup[0])
-    return float(tup[0]) + (float(tup[1]) / 100)
-
-
-# doing a simple split we get interesting results
-
-if __name__ == '__main__':
-    doctest.testmod()
