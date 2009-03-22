@@ -15,6 +15,16 @@ from parse_iperf import *
 
 TESTFILES = glob.glob("dataLab/logs/*.txt")
 
+class TestIperfOut(unittest.TestCase):
+    def setUp(self):
+        self.csvLine = """"20090314193213,172.16.201.1,63132,172.16.201.131,5001,3,0.0-10.0,1312710,1048592
+        20090314193213,172.16.201.131,5001,172.16.201.1,63132,3,0.0-10.0,1312710,1049881,0.838,0,893,0.000,0"""
+        # self.csvResult = 
+        self.plainLine = "[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec  1.496 ms    0/  893 (0%)"
+    
+    def testCsv(self):
+        pass
+
 def iperfAnalyzer():
     """Generates the configuration, executes the program and plot it"""
     iperf = Plotter("iperf output")
@@ -40,26 +50,52 @@ class TestConstOpt(unittest.TestCase):
         self.badIp = "23.1.1000.2"
     
     def testSetting(self):
-        self.assertEqual(ConstOpt("ip", self.goodIP, self.ipregex).value, self.goodIP)
-        self.failUnlessRaises(ValueError, ConstOpt, "ip", self.badIp, self.ipregex)
+        c = ConstOpt("ip", regex = self.ipregex)
+        c.set(self.goodIP)
+        self.assertEqual(c.value, self.goodIP)
+        self.failUnlessRaises(ValueError, c.set, self.badIp)
+    
+    def testEq(self):
+        self.assertEqual(ConstOpt("prova"), ConstOpt("prova"))
 
 class TestParamOpt(unittest.TestCase):
-    """docstring for TestParamOpt(unittest.TestCase)"""
     def setUp(self):
-        """docstring for setUp"""
         self.name = "param"
-        self.flag = "-p"
         self.values = range(10)
         self.good = 3
         self.bad = 11
     
     def testSetting(self):
-        """docstring for testSetting"""
-        self.assertEqual(ParamOpt(self.name, self.good, self.values).value, self.good)
-        self.failUnlessRaises(ValueError, ParamOpt, self.flag, self.bad, self.values)
+        p = ParamOpt(self.name, self.good, [self.values])
+        self.assertEqual(p.value, self.good)
+        self.failUnlessRaises(ValueError, p.set, self.bad)
         
+    def testEq(self):
+        self.assertEqual(ParamOpt("param", "value", ["value", "value2"]), ParamOpt("param", "value", ["value", "value2"]))
+    
+class TestBoolOpt(unittest.TestCase):
+    def setUp(self):
+        self.name = "boolean"
+        self.good = True
+        self.bad = "true"
+    
+    def testSetting(self):
+        """docstring for testSetting"""
+        b = BoolOpt(self.name)
+        b.set(self.good)
+        self.assertEqual(b.value, self.good)
+        self.failUnlessRaises(ValueError, b.set, self.bad)
+        
+    def testEq(self):
+        self.assertEqual(BoolOpt("option", False), BoolOpt("option", False))
+        
+    
 class TestIperfConf(unittest.TestCase):
     """testing iperf configurator"""
+    def setUp(self):
+        pass
+        
+class TestSectionConf(unittest.TestCase):
     def setUp(self):
         pass
 
