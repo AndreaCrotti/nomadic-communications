@@ -7,8 +7,6 @@ import time
 import shelve
 import os
 
-NUM = re.compile(r"(\d+)(?:\.(\d+))?")
-
 class IperfOutput(object):
     """class to handle iperf outputs in different formats
         possible input formats are this (PLAIN):
@@ -24,7 +22,7 @@ class IperfOutput(object):
         [[10.0, 1.0, 1.0, 6.0, 0, 893, 0]]
     """
     
-    def __init__(self, conf = IperfConf("hostname"), value = 'kbs', format='PLAIN'):
+    def __init__(self, conf = {}, value = 'kbs', format='PLAIN'):
         """Parser of iperf output, must manage every possible output,
         for example csv/not csv and double test mode
         Using the default Iperf configuration in none passed"""
@@ -39,75 +37,35 @@ class IperfOutput(object):
         toIdx = lambda n: dict(zip([x[n] for x in self.positions.values()], self.positions.keys()))
         self.toPlainIdx = toIdx(0)
         self.toCsvIdx = toIdx(1)
-
         self.format = format
-        self.conf = conf
-        self.result = []
-    
-    def parseString(self, line):
-        """Parsing a single result"""
+        # In this way I can set
         if self.format == 'PLAIN':
-            return self.parsePlain(line)
+            self.dic = self.toPlainIdx
         elif self.format == 'CSV':
-            return self.parseCsv(line)
+            self.dic = self.toCsvIdx
 
-    def nextResult(self):
-        for line in self.text.xreadlines():
-            if self.format == 'PLAIN':
-                # only if really a result line
-                if re.search(r"\bms\b", line):
-                    parsed = self.parsePlain(line)
-                    self.result.append(parsed)
-                    yield(parsed[self.nameToIdx['mb']])
-            elif format == 'CSV':
-                parsed = self.parseCsv(line)
-                self.result.append(parsed[self.nameToIdx['mb']])
-                yield(parsed[2])
-            else:
-                print "format not available"
+    def parseLine(self, line):
+        """parse a single line"""
+        result = {}
+        if self.format == 'PLAIN':
+            num = re.compile(r"(\d+)(?:\.(\d+))?")
+            values = num.findall(line)
+        if self.format == 'CSV':
+            values = line[-1].strip().split(',')
         
-    def parsePlain(self, line):
-        """parsing the plain structure"""
-        num = re.compile(r"(\d+)(?:\.(\d+))?")
-        values = num.findall(line)
-        result = {}
-        for c in self.toPlainIdx.iterkeys():
-            result[self.toPlainIdx[c]] = toFlat(values[c])
-        return result
-    
-    def parseCsv(self, line):
-        """Same thing but much easier, getting a big number"""
-        positions = {
-            0  : 'start',
-            8  : 'bytes/sec',
-            9  : 'jitter',
-            10 : 'lost',
-            11 : 'total'
-        }
-        # taking only the last line
-        values = line[-1].strip().split(',')  # this has length 14
-        result = {}
-        for x in positions.iterkeys():
-            result[positions[x]] = values[x]
+        print "values found ", values
+        # This way this works for both
+        for el in self.dic.iterkeys():
+            result[self.dic[el]] = toFlat(values[el])
         return result
 
-class Size:
-    """Class representing the size of an object"""
-    def __init__(self, num, dim = 'bytes'):    
-        self.num = num
-        self.dic = {
-                'bytes'  : 1,
-                'kbytes' : 1024 * 1024,
-                'mbytes' : 1024 * 1024 * 1024,
-                'gbytes' : 1024 * 1024 * 1024 * 1024
-            }
 
 
 class Opt:
-    """General class for options"""
-    def __init__(self, name, value):
+    """General class for options, generates a ValueError exception whenever
+    trying to set a value which is not feasible for the option"""
+    def __init__(self, name):
         self.name = name
-        self.set(value)
     
     def iter_set(self, value):
         while True:
@@ -121,11 +79,9 @@ class Opt:
     
     def __repr__(self):
         return (self.name + " " + str(self.value))
-    
-    def valid(self):
-        return True
-        
+
     def set(self, value):
+        """Setting the value, validity check before"""
         if self.valid(value):
             self.value = value
         else:
@@ -135,7 +91,7 @@ class Opt:
 class BoolOpt(Opt):
     """Boolean option, if not set just give the null string"""
     def __init__(self, name):
-        Opt.__init__(self, name, True)
+        Opt.__init__(self, name)
 
     def __repr__(self):
         if self.value:
@@ -153,9 +109,9 @@ class BoolOpt(Opt):
 class ConstOpt(Opt):
     """Constant option, when you just have one possible value
     It optionally takes a regular expression used to check if input is syntactically correct"""
-    def __init__(self, name, value, regex = None):
+    def __init__(self, name, regex = None):
         self.regex = regex
-        Opt.__init__(self, name, value)
+        Opt.__init__(self, name)
     
     def valid(self, value):
         return not(self.regex) or re.match(self.regex, value)
@@ -167,9 +123,9 @@ class ConstOpt(Opt):
 class ParamOpt(Opt):
     """Option with a parameter
     This takes a list of possible values and checks every time if input is safe"""
-    def __init__(self, name, value, valList):
+    def __init__(self, name, valList):
         self.valList = valList        
-        Opt.__init__(self, name, value)
+        Opt.__init__(self, name)
 
     def valid(self, value):
         return value in self.valList
@@ -214,7 +170,8 @@ class Plotter:
 
 class Conf:
     """Configuration class, working on a dictionary of
-    configurations parameters"""
+    configurations parameters
+    Using ConfigParser to write / read configuration parameters"""
     def __init__(self, conf):
         # Check if hostname is actually reachable?
         self.conf = conf
@@ -274,21 +231,6 @@ class IperfConf(Conf):
     def __str__(self):
         return self.__repr__()
 
-linksys = {
-    "ssid" : "NCB",
-    "ip" : "192.168.10.5"
-}
-
-cisco1 = {
-    "ssid" : "NCG",
-    "ip" : "192.168.10.10"
-}
-
-cisco2 = {
-    "ssid" : "NCL",
-    "ip" : "192.168.10.15"
-}
-
 
 class ApConf(object):
     """Configuration of an access point"""
@@ -309,7 +251,7 @@ def toFlat(tup):
     """
     if tup[1] == '':
         return int(tup[0])
-    return round(float(tup[0]) + (float(tup[1]) / 100))
+    return float(tup[0]) + (float(tup[1]) / 100)
 
 
 # doing a simple split we get interesting results
