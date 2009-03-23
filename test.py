@@ -11,26 +11,59 @@ import unittest
 import re
 import random
 import glob
+import time
 from parse_iperf import *
 
 TESTFILES = glob.glob("dataLab/logs/*.txt")
 
+class TestRunner:
+    """Putting all together and running the test, saving output with shelve"""
+    def __init__(self):
+        self.conf = Conf()
+        localOs = os.uname()
+        self.testdb = shelve.open("testdb")
+        self.conf['iperf']['csv'].set(False)
+        self.conf['iperf']['host'].set("localhost")
+        self.conf['iperf']['time'].set(5)
+        self.iperfOut = IperfOutPlain()
+        self.plotter = Plotter("test", "bs")
+            
+    def runTest(self, ntimes):
+        print "actual configuration is %s, modify %s to change conf" % (self.conf, self.conf.conf_file)
+        # for n in range(ntimes):
+        r, w, e = os.popen3(str(self.conf['iperf']))
+        
+        for line in w.readlines():
+            self.iperfOut.parseLine(line)
+                
+        print self.iperfOut.result
+        # self.plotter.addData(self.iperfOut.getValues(), "data test")
+        # self.plotter.plot()
+
 class TestIperfOut(unittest.TestCase):
     def setUp(self):
-        self.csvLine = """"20090314193213,172.16.201.1,63132,172.16.201.131,5001,3,0.0-10.0,1312710,1048592
-        20090314193213,172.16.201.131,5001,172.16.201.1,63132,3,0.0-10.0,1312710,1049881,0.838,0,893,0.000,0"""
-        # self.csvResult = 
+        self.csvLine = "20090314193213,172.16.201.131,5001,172.16.201.1,63132,3,0.0-10.0,1312710,1049881,0.838,0,893,0.000,0"
+        self.csvResult = [{'bs': '1049881', 'jitter': '0.838', 'missed': '0', 'total': '893'}]
         self.plainLine = "[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec  1.496 ms    0/  893 (0%)"
-    
+        self.plainResult = [{'bs': 1.05, 'jitter': 1.496, 'missed': 0.0, 'total': 893.0}]
+
     def testCsv(self):
-        pass
+        csv = IperfOutCsv()
+        csv.parseLine(self.csvLine)
+        self.assertEqual(csv.result, self.csvResult)
+        self.assertEqual(csv.getValues()[0], self.csvResult[0][csv.value])
+    
+    def testPlain(self):
+        plain = IperfOutPlain()
+        plain.parseLine(self.plainLine)
+        self.assertEqual(plain.result, self.plainResult)
+        
 
 def iperfAnalyzer():
     """Generates the configuration, executes the program and plot it"""
     iperf = Plotter("iperf output")
     for f in TESTFILES:
         o = IperfOutput({})
-        
 
     iperf = Plotter("iperf output")
     for count in range(20):
@@ -101,9 +134,7 @@ class TestSectionConf(unittest.TestCase):
 
 def testPlotter():
     """docstring for testPlotter"""
-    p = Plotter("test")
-    # using * to autoscale one of the variables
-    p.plotter.set_range('yrange', '[0:*]')
+    p = Plotter("test", "band")
     p.addData([50 + random.randrange(5)], "random")
     for x in range(100):
         p.update([50 + random.randrange(5)])
@@ -119,8 +150,8 @@ def testPlotter():
         time.sleep(0.05)
         
 
-
-
 if __name__ == '__main__':
     # testPlotter()
+    t = TestRunner()
+    t.runTest(10)
     unittest.main()
