@@ -20,8 +20,25 @@ except ImportError, i:
     print "not able to do the statistical analysis"
     STAT = False
 
-def avg(values):
-    return sum(values) / float(len(values))
+class Size:
+    """Size units:
+    b/B, kb/Kb, mb/Mb, gb/Gb"""
+    def __init__(self, value, unit):
+        self.value = value
+        self.unit = unit
+        self.units = ['b', 'kb', 'mb', 'gb']
+    
+    def findUnit(self):
+        val = self.value
+        un = self.unit
+        while val > 1024:
+            val /= float(1024)
+            # going to the next
+            un = self.units[self.units.index(un) + 1]
+        return Size(val, un)
+        
+    def __repr__(self):
+        return " ".join([str(self.value), self.unit])
     
 class StatData:
     """Statistical computations on data"""
@@ -33,14 +50,6 @@ class StatData:
     def __repr__(self):
         return "\n".join(["values:\t" + repr(self.data), "mean:\t" + repr(self.mean), "stdev:\t" + repr(self.stdev)])
     
-class TestRunner:
-    """Putting all together and running the test, saving output with shelve"""
-    def __init__(self):
-        self.conf = Conf()
-        localOs = os.uname()
-        print "actual configuration is %s, modify %s to change conf" % (self.conf, self.conf.conf_file)
-        
-        
     
 class IperfOutput(object):
     """class to handle iperf outputs in different formats
@@ -69,11 +78,13 @@ class IperfOutput(object):
         result = {}
         # calling the function defined in subclasses
         values = self.parseValues(line)
+        print "obtained ", values
         # doing nothing if useless line
         if not(values):
             return
         for el in self.fromIdx.iterkeys():
             result[self.fromIdx[el]] = values[el]
+        print result
         self.result.append(result)
     
     def parseFile(self, filename):
@@ -216,19 +227,24 @@ class Plotter:
         maxGraphs indicates the maximum number of "functions" to be plotted
         at the same time
     """
-    def __init__(self, title, maxGraphs = 2):
+    def __init__(self, title, value, maxGraphs = 2):
         self.title = title
+        self.value = value
         self.items = []
         self.last = []
         self.maxGraphs = maxGraphs
         self.plotter = Gnuplot.Gnuplot(persist = 1)
+        self.plotter.set_string("title", title)
+        self.plotter.set_range('yrange', (0,"*"))
+        self.plotter.set_label('xlabel', "step")
+        self.plotter.set_label('ylabel', self.value)
     
     def addData(self, data, name):
         """Add another data set"""
-        # always keeping last maxGraphs elements
+        # always keeping last maxGraphs elements in the item list and redraw them
         self.last = data
-        new = Gnuplot.Data(data, with = "linespoints", title = name)
-        self.items = self.items[ -self.maxGraphs : ] + [new]
+        new = Gnuplot.Data(data, title = name, with = "linespoint")
+        self.items = self.items[ -self.maxGraphs + 1 : ] + [new]
 
     def plot(self):
         """docstring for plot"""
@@ -236,22 +252,27 @@ class Plotter:
     
     def update(self, data):
         """Adds data to the last data set"""
+        # FIXME doesn't have to redraw everything every time 
         self.last += data
-        new = Gnuplot.Data(self.last, with = "linespoints")
-        if not self.items:
-            self.items = [new]
-        else:
-            self.items[-1] = new
+        new = Gnuplot.Data(self.last, with = "linespoint", title = self.items[-1].get_option("title"))
+        self.items[-1] = new
         self.plot()
+    
+def testMany():
+    p = Plotter("titolo", "bs")
+    p.addData(range(10), "range")
+    p.addData([4]*10, "const")
+    p.addData([stats.mean(range(10))] * 10, "avg")
+    p.plot()
 
 class Conf:
     # remind that boolean options are set to true by default
     iperfConf = {
         "udp"   : BoolOpt("-u"),
         "band"  : ParamOpt("-b", 1, [1, 2, 5.5, 11]),
-        "dual"  : BoolOpt("-d"),
+        "dual"  : BoolOpt("-d", False),
         "host"  : ConstOpt("-c", "192.168.10.30"),
-        "time"  : ParamOpt("-t", 20, [20,30,40]),
+        "time"  : ParamOpt("-t", 20, [5, 20,30,40]),
         "csv"   : BoolOpt("-y c")
     }
     def __init__(self, conf_file = "config.ini"):
@@ -269,7 +290,7 @@ class Conf:
         return "\n".join([(key + " " + val.__repr__()) for key, val in self.configuration.items()])
         
     def __str__(self):
-        return __repr__(self)
+        return self.__repr__()
 
     def __getitem__(self, idx):
         return self.configuration[idx]
@@ -328,7 +349,7 @@ class SectionConf:
         self.conf = copy.deepcopy(self.def_conf)
     
     def __repr__(self):
-        return ' '.join([el.__repr__() for el in self.conf.values()])
+        return ' '.join([self.name] + [el.__repr__() for el in self.conf.values()])
     
     def __str__(self):
         return self.__repr__()
