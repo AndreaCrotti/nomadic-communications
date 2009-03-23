@@ -1,14 +1,47 @@
 #!/usr/bin/env python
 import re
-import doctest
-import Gnuplot
 import sys
-import time
 import shelve
 import os
 import ConfigParser
 import copy
 
+GNUPLOT = True
+try:
+    import Gnuplot
+except ImportError, i:
+    print "you will be unable to plot in real time"
+    GNUPLOT = False
+
+STAT = True
+try:
+    from statlib import stats
+except ImportError, i:
+    print "not able to do the statistical analysis"
+    STAT = False
+
+def avg(values):
+    return sum(values) / float(len(values))
+    
+class StatData:
+    """Statistical computations on data"""
+    def __init__(self, data):
+        self.data = data
+        self.mean = stats.mean(data)
+        self.stdev = stats.stdev(data)
+    
+    def __repr__(self):
+        return "\n".join(["values:\t" + repr(self.data), "mean:\t" + repr(self.mean), "stdev:\t" + repr(self.stdev)])
+    
+class TestRunner:
+    """Putting all together and running the test, saving output with shelve"""
+    def __init__(self):
+        self.conf = Conf()
+        localOs = os.uname()
+        print "actual configuration is %s, modify %s to change conf" % (self.conf, self.conf.conf_file)
+        
+        
+    
 class IperfOutput(object):
     """class to handle iperf outputs in different formats
         possible input formats are this (PLAIN):
@@ -17,34 +50,39 @@ class IperfOutput(object):
         20090314193213,172.16.201.1,63132,172.16.201.131,5001,3,0.0-10.0,1312710,1048592
         20090314193213,172.16.201.131,5001,172.16.201.1,63132,3,0.0-10.0,1312710,1049881,0.838,0,893,0.000,0
         
+        The bigger problem is about measures, csv doesn't take the -f option and plain doesn't output in bytes/sec
+
         The philosophy behind this output analyzer is:
         "keep everything return only what's needed"
     """
     
-    def __init__(self, value = 'bs', format = 'CSV'):
-        """Parser of iperf output, must manage every possible output,
-        for example csv/not csv and double test mode
-        Using the default Iperf configuration in none passed"""
-        
+    def __init__(self, format = 'CSV', value = 'bs'):
+        # inverting the dictionary
         self.fromIdx = dict(zip(self.positions.values(), self.positions.keys()))
         self.value = value
-        # creating inverse lookups dictionaries for the two possible formats
         self.format = format
+        self.result = []
 
     def parseLine(self, line):
-        """parse a single line"""
+        """parse a single line
+        FIXME Creating a dictionary for every line isn't very efficient"""
         result = {}
-        values = self.get_values(line)
+        # calling the function defined in subclasses
+        values = self.parseValues(line)
+        # doing nothing if useless line
+        if not(values):
+            return
         for el in self.fromIdx.iterkeys():
             result[self.fromIdx[el]] = values[el]
-        return result
+        self.result.append(result)
     
     def parseFile(self, filename):
-        """parsing a file"""
-        result = []
+        "Takes the filename"
         for line in open(filename):
-            result.append(self.parseLine(line)[self.value])
-        return result
+            self.parseLine(line)
+    
+    def getValues(self):
+        return [el[self.value] for el in self.result]
 
 class IperfOutCsv(IperfOutput):
     """Handling iperf output in csv mode"""
@@ -55,8 +93,12 @@ class IperfOutCsv(IperfOutput):
         IperfOutput.__init__(self, format = 'CSV')
         
 
-    def get_values(self, line):
-        return line.strip().split(',')
+    def parseValues(self, line):
+        splitted = line.strip().split(',')
+        if len(splitted) >= 11:
+            return splitted
+        else: 
+            return None
         
         
 class IperfOutPlain(IperfOutput):
@@ -67,11 +109,18 @@ class IperfOutPlain(IperfOutput):
         }
         IperfOutput.__init__(self, format = 'PLAIN')
 
-    def get_values(self, line):
-        num = re.compile(r"(\d+)(?:\.(\d+))?")
-        nums = num.findall(line)
-        # TODO implementing such a function to work correctly with float values
-        values = map(fun, nums)
+    def parseValues(self, line):
+        if re.search(r"\bms\b", line):
+            num = re.compile(r"(\d+)(?:\.(\d+))?")
+            nums = num.findall(line)
+            values = map(self.__fun, nums)
+            return values
+        else:
+            return None
+    
+    def __fun(self, tup):
+        """Taking float numbers in a list of tuples"""
+        return float('.'.join([tup[0], tup[1]]))
         
 
 class Opt:
@@ -81,14 +130,14 @@ class Opt:
         self.name = name
         self.value = value
     
-    def iter_set(self, value):
+    def iterSet(self, value):
         """Keep trying to set a value interactively until it's ok"""
         while True:
             try:
                 self.set(value)
             except ValueError:
                 print self.choices()
-                self.iter_set(raw_input("continuing until it's ok\n"))
+                self.iterSet(raw_input("continuing until it's ok\n"))
             else:
                 break
     
@@ -125,12 +174,11 @@ class BoolOpt(Opt):
         else:
             return ""
 
-    # FIXME in interactive way it gets crazy with booleans
     def valid(self, value):
         return value in (True, False)
     
     def choices(self):
-        return "must be True or False"
+        return "True, False"
 
 class ConstOpt(Opt):
     """Constant option, when you just have one possible value
@@ -140,10 +188,14 @@ class ConstOpt(Opt):
         Opt.__init__(self, name, value)
     
     def valid(self, value):
-        return not(self.regex) or re.match(self.regex, value)
+        return (not(self.regex) or re.match(self.regex, value))
     
+    # FIXME strange TypeError: cannot concatenate 'str' and 'NoneType' objects error
     def choices(self):
-        return "must satisfy " + self.regex
+        if not(self.regex):
+            return "whatever"
+        else:
+            return ("must satisfy regex: " + self.regex)
         
 class ParamOpt(Opt):
     """Option with a parameter
@@ -210,15 +262,23 @@ class Conf:
         }
         self.reader = ConfigParser.ConfigParser()
         self.reader.readfp(open(conf_file))
+        self.writer = ConfigParser.ConfigParser()
+        
     
     def __repr__(self):
-        return "\n".join([x.__repr__() for x in self.configuration.values()]) 
+        return "\n".join([(key + " " + val.__repr__()) for key, val in self.configuration.items()])
+        
+    def __str__(self):
+        return __repr__(self)
+
+    def __getitem__(self, idx):
+        return self.configuration[idx]
         
     def defConf(self):
         for v in self.configuration.values():
             print v.def_conf
     
-    def get_opt(self, section, name, opt):
+    def getOpt(self, section, name, opt):
         try:
             # FIXME not really nice programming style
             t = type(opt.value)
@@ -238,38 +298,24 @@ class Conf:
             except ValueError, e:
                 print "not valid value for %s in %s keeping default" % (name, section)
                 
+    def showConf(self):
+        for sec, val in self.configuration.items():
+            self.writer.add_section(sec)
+            for key, v in val.conf.items():
+                self.writer.set(sec, key, v.value)
+        self.writer.write(sys.stdout)
+
     def changed(self):
         changed = {}
         for key, val in self.configuration.iteritems():
             changed[key] = val.changed()
         return changed
 
-    def update_conf(self):
-        """Merge default configuration to configuration written to file"""
+    def updateConf(self):
+        """Merge default configuration with configuration written to file"""
         for sec, conf in self.configuration.iteritems():
             for key, opt in conf.conf.iteritems():
-                self.get_opt(sec, key, opt)
-    
-    def rand_config(self):
-        """returns a random configuration"""
-        from random import random, choice
-        c = choice(self.conf)
-        if isinstance(c, BoolOpt):
-            c.swap()
-        if isinstance(c, ParamOpt):
-            c.rand_config()
-    
-    def configurator(self):
-        """iterative configurator of iperf"""
-        dic = dict(zip(range(len(self.conf)), self.conf))
-        for k, v in dic.items():
-            print "%d) %s" % (k, v)
-        while True:
-            num = input("make a choice")
-            if num not in range(len(self.conf)):
-                continue
-            else:
-                print "selected %d" % num
+                self.getOpt(sec, key, opt)
 
 class SectionConf:
     """Configuration class, working on a dictionary of
@@ -287,12 +333,21 @@ class SectionConf:
     def __str__(self):
         return self.__repr__()
     
+    def __getitem__(self, idx):
+        return self.conf[idx]
+
     # FIXME not working, doesn't get the right thing
     def changed(self):
         """Defining the minus operator on configurations"""
         changed = {}
         for key, val in self.def_conf.iteritems():
-            print "checking ", self.conf[key], " equal to ", val
             if self.conf[key] != val:
                 changed[key] = self.conf[key]
-        return changed
+        return SectionConf("diff", changed)
+    
+    def writeOptions(self):
+        """Writes out options"""
+        for el, val in self.def_conf.items():
+            print el, val
+            print el, val.choices()
+        
