@@ -5,6 +5,7 @@ import shelve
 import os
 import ConfigParser
 import copy
+import time
 
 GNUPLOT = True
 try:
@@ -20,18 +21,73 @@ except ImportError, i:
     print "not able to do the statistical analysis"
     STAT = False
 
-class Size:
-    """Size units:
-    b/B, kb/Kb, mb/Mb, gb/Gb"""
-    def __init__(self, value, unit):
-        self.value = value
-        self.unit = unit
-        self.units = ['b', 'kb', 'mb', 'gb']
+# ==========================
+# = Configuration analysis =
+# ==========================
+class TestConf:
+    def __init__(self, num_tests):
+        """docstring for __init__"""
+        self.num_tests = num_tests
+        self.conf = Conf()
+        self.testConf = {
+            "platform"  : os.uname(),
+            "conf"      : self.conf,
+            "start"     : None,
+            "stop"      : None
+        }
+        self.conf['iperf']['host'].set("koalawlan")
+        self.conf['iperf']['time'].set(20)
+        self.output = IperfOutPlain()
+
     
+    def __repr__(self):
+        return repr(self.conf)
+
+    def runTest(self):
+        cmd = str(self.conf['iperf'])
+        print "your actual configuration is %s, press y when ready to test" % self.testConf
+        while True:
+            ans = raw_input("y/n")
+            if ans == "n":
+                print "exiting"
+                return
+            elif ans == "y":
+                print "starting the test"
+                break
+            else:
+                continue
+        for _ in range(self.num_tests):
+            _, w, _ = os.popen3(cmd)
+            for line in w.readlines():
+                self.output.parseLine(line)
+        self.res = self.output.getValues()
+        print self.res
+        if GNUPLOT:
+            self.plotter = Plotter("testing", "kbs")
+            self.plotter.addData(self.res, "testing")
+            self.plotter.plot()
+
+
+class Size:
+    """ Converting from one unit misure to the other """
+    def __init__(self, value, unit = 'B'):
+        self.value = value
+        self.units = ['B', 'K', 'M', 'G']
+        if unit not in self.units:
+            raise ValueError, "unit must be in " + str(self.units)
+        self.unit = unit
+
+    def translate(self, unit):
+        if unit not in self.units:
+            raise ValueError, "can only choose " + self.units
+        else:
+            offset = self.units.index(self.unit) - self.units.index(unit)
+            return round(self.value * (pow(1024, offset)), 2)
+
     def findUnit(self):
         val = self.value
         un = self.unit
-        while val > 1024:
+        while val > 1024 and self.units.index(un) < len(self.units):
             val /= float(1024)
             # going to the next
             un = self.units[self.units.index(un) + 1]
@@ -39,7 +95,8 @@ class Size:
         
     def __repr__(self):
         return " ".join([str(self.value), self.unit])
-    
+
+
 class StatData:
     """Statistical computations on data"""
     def __init__(self, data):
@@ -49,8 +106,13 @@ class StatData:
     
     def __repr__(self):
         return "\n".join(["values:\t" + repr(self.data), "mean:\t" + repr(self.mean), "stdev:\t" + repr(self.stdev)])
+        
+    # TODO implementing the efficiency of the channel
     
     
+# ==========================================
+# = Handling iperf output in various forms =
+# ==========================================
 class IperfOutput(object):
     """class to handle iperf outputs in different formats
         possible input formats are this (PLAIN):
@@ -65,26 +127,32 @@ class IperfOutput(object):
         "keep everything return only what's needed"
     """
     
-    def __init__(self, format = 'CSV', value = 'bs'):
+    def __init__(self, format, udp = True, value = 'kbs'):
         # inverting the dictionary
+        self.udp = udp
         self.fromIdx = dict(zip(self.positions.values(), self.positions.keys()))
         self.value = value
         self.format = format
         self.result = []
 
+    # TODO creating an iterator
     def parseLine(self, line):
         """parse a single line
         FIXME Creating a dictionary for every line isn't very efficient"""
         result = {}
         # calling the function defined in subclasses
-        values = self.parseValues(line)
-        print "obtained ", values
+        if not(self.udp):
+            kbs = self.parse_udp(line)
+            print "obtained ", kbs
+            result = dict(zip(self.fromIdx.keys(), [None] * len(self.fromIdx.keys())))
+            result['kbs'] = kbs
+        else:
+            values = self.parse_tcp(line)
         # doing nothing if useless line
-        if not(values):
-            return
-        for el in self.fromIdx.iterkeys():
-            result[self.fromIdx[el]] = values[el]
-        print result
+            if not(values):
+                return
+            for el in self.fromIdx.iterkeys():
+                result[self.fromIdx[el]] = values[el]
         self.result.append(result)
     
     def parseFile(self, filename):
@@ -94,33 +162,53 @@ class IperfOutput(object):
     
     def getValues(self):
         return [el[self.value] for el in self.result]
+    # 
+    # def parse_udp(self, line):
+    #     assert 0, 'parse_udp must be implemented'
 
 class IperfOutCsv(IperfOutput):
     """Handling iperf output in csv mode"""
-    def __init__(self):
+    def __init__(self, udp = True):
         self.positions = {
-            "bs" : 8, "jitter" : 9, "missed" : 10, "total" : 11
+            "kbs" : 8, "jitter" : 9, "missed" : 10, "total" : 11
         }
-        IperfOutput.__init__(self, format = 'CSV')
-        
+        IperfOutput.__init__(self, udp = udp, format = 'CSV')
+        self.splitted = lambda line: line.strip().split(',')
+    
+    def _translate(self, val):
+        print "passing", int(val)
+        v = int(val)
+        return Size(v).translate('K')
 
-    def parseValues(self, line):
-        splitted = line.strip().split(',')
-        if len(splitted) >= 11:
-            return splitted
+    def parse_tcp(self, line):
+        """Returning just the bandwidth value in KB/s"""
+        return self._translate(self.splitted(line)[-1])
+
+    def parse_udp(self, line):
+        ll = self.splitted(line)
+        if len(ll) >= 11:
+            # FIXME a bit ugly way to translate last value to kbs
+            ll[-1] = ll[-1]._translate()
+            return ll
         else: 
             return None
-        
         
 class IperfOutPlain(IperfOutput):
     """Handling iperf not in csv mode"""
     def __init__(self):
         self.positions = {
-            "bs" : 4, "jitter" : 5, "missed" : 6, "total" : 7
+            "kbs" : 4, "jitter" : 5, "missed" : 6, "total" : 7
         }
-        IperfOutput.__init__(self, format = 'PLAIN')
+        self.num = re.compile(r"(\d+)(?:\.(\d+))?")
+        IperfOutput.__init__(self, udp = udp, format = 'PLAIN')
 
-    def parseValues(self, line):
+    def parse_tcp(self, line):
+        """if using tcp mode changes everything, line becomes for example 
+        [  3]  0.0- 5.0 sec  3312 KBytes    660 KBytes/sec
+        Only gives back the bandwidth"""
+        return self.__fun(self.num.findall(line))
+        
+    def parse_udp(self, line):
         if re.search(r"\bms\b", line):
             num = re.compile(r"(\d+)(?:\.(\d+))?")
             nums = num.findall(line)
@@ -133,24 +221,15 @@ class IperfOutPlain(IperfOutput):
         """Taking float numbers in a list of tuples"""
         return float('.'.join([tup[0], tup[1]]))
         
-
+# ================================
+# = Classes for handling options =
+# ================================
 class Opt:
     """General class for options, generates a ValueError exception whenever
     trying to set a value which is not feasible for the option"""
     def __init__(self, name, value = None):
         self.name = name
         self.value = value
-    
-    def iterSet(self, value):
-        """Keep trying to set a value interactively until it's ok"""
-        while True:
-            try:
-                self.set(value)
-            except ValueError:
-                print self.choices()
-                self.iterSet(raw_input("continuing until it's ok\n"))
-            else:
-                break
     
     def __repr__(self):
         if not self.value:
@@ -164,6 +243,12 @@ class Opt:
     def __eq__(self, other):
         """checking equality of option types, also type must be equal"""
         return type(self) == type(other) and self.name == other.name and self.value == other.value
+
+    # def valid(self):
+    #     assert 0, 'valid must be implemented'
+    # 
+    # def choices(self):
+    #     assert 0, 'choices must be implemented'
 
     def set(self, value):
         """Setting the value only if validity check is passed"""
@@ -238,7 +323,7 @@ class Plotter:
         self.plotter.set_range('yrange', (0,"*"))
         self.plotter.set_label('xlabel', "step")
         self.plotter.set_label('ylabel', self.value)
-    
+
     def addData(self, data, name):
         """Add another data set"""
         # always keeping last maxGraphs elements in the item list and redraw them
@@ -257,29 +342,35 @@ class Plotter:
         new = Gnuplot.Data(self.last, with = "linespoint", title = self.items[-1].get_option("title"))
         self.items[-1] = new
         self.plot()
-    
-def testMany():
-    p = Plotter("titolo", "bs")
-    p.addData(range(10), "range")
-    p.addData([4]*10, "const")
-    p.addData([stats.mean(range(10))] * 10, "avg")
-    p.plot()
+        
 
 class Conf:
     # remind that boolean options are set to true by default
     iperfConf = {
-        "udp"   : BoolOpt("-u"),
-        "band"  : ParamOpt("-b", 1, [1, 2, 5.5, 11]),
-        "dual"  : BoolOpt("-d", False),
         "host"  : ConstOpt("-c", "192.168.10.30"),
-        "time"  : ParamOpt("-t", 20, [5, 20,30,40]),
-        "csv"   : BoolOpt("-y c")
+        "udp"   : BoolOpt("-u"),
+        # "band"  : ParamOpt("-b", 1, [1, 2, 5.5, 11]),
+        "dual"  : BoolOpt("-d", False),
+        "time"  : ParamOpt("-t", 5, [5, 20, 30, 40]),
+        "csv"   : BoolOpt("-y c", False),
+        "format": ConstOpt("-f", "K")      # defaulting to kiloBytes
+    }
+    apConf = {
+        "speed"             : ParamOpt("speed", 11, [1, 2, 5.5, 11]),
+        # "mode"              : ParamOpt("mode", "g", ["g", "b"]),
+        "frag_threshold"    : ParamOpt("frag_threshold", 1500, range(256,1501)),
+        "rts_threshold"     : ParamOpt("rts_threshold", 2436, range(256, 2437))
+    }
+    nicConf = {
+        
     }
     def __init__(self, conf_file = "config.ini"):
         """"General configuration"""
         self.conf_file = conf_file
         self.configuration = {
-            "iperf" : SectionConf("iperf", self.iperfConf)
+            "iperf" : SectionConf("iperf", self.iperfConf),
+            "ap"    : SectionConf("ap", self.apConf),
+            "nic"   : SectionConf("nic", self.nicConf)
         }
         self.reader = ConfigParser.ConfigParser()
         self.reader.readfp(open(conf_file))
@@ -287,7 +378,7 @@ class Conf:
         
     
     def __repr__(self):
-        return "\n".join([(key + " " + val.__repr__()) for key, val in self.configuration.items()])
+        return "\n".join([(key + ":\t" + val.__repr__()) for key, val in self.configuration.items()])
         
     def __str__(self):
         return self.__repr__()
@@ -303,14 +394,14 @@ class Conf:
         try:
             # FIXME not really nice programming style
             t = type(opt.value)
-            if type(opt.value) == int:
+            if t == int:
                 value = self.reader.getint(section, name)
-            elif type(opt.value) == bool:
+            elif t == bool:
                 value = self.reader.getboolean(section, name)
             else:
                 value = self.reader.get(section, name)
                 
-        except Exception, e:
+        except Exception:
             print "no option for ", name
             
         else:
