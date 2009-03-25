@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+# encoding: utf-8
+
+# =================================================================
+# = This python program allows to automatize the creation         =
+# = and analysis of test using iperf to test network performances =
+# =================================================================
+
 import re
 import sys
 import shelve
@@ -21,50 +28,64 @@ except ImportError, i:
     print "not able to do the statistical analysis"
     STAT = False
 
+VERBOSE = True
+
 # ==========================
 # = Configuration analysis =
 # ==========================
 class TestConf:
-    def __init__(self, num_tests):
+    def __init__(self, num_tests, host):
         """docstring for __init__"""
         self.num_tests = num_tests
         self.conf = Conf()
-        self.testConf = {
+        self.conf['iperf']['time'].set(20)
+        self.conf['iperf']['host'].set(host)
+        self.analyzer = IperfOutPlain()
+        date = time.strftime("%d-%m-%Y", time.localtime())
+        self.tempo = lambda: time.strftime("%H:%M", time.localtime())
+        self.output = shelve.open("test_result-" + date)
+        self.test_conf = {
             "platform"  : os.uname(),
             "conf"      : self.conf,
             "start"     : None,
-            "stop"      : None
+            "end"       : None,
+            "result"    : None
         }
-        self.conf['iperf']['host'].set("koalawlan")
-        self.conf['iperf']['time'].set(20)
-        self.output = IperfOutPlain()
-
     
     def __repr__(self):
-        return repr(self.conf)
+        return repr(self.test_conf)
 
-    def runTest(self):
+    def set_host(self, host):
+        """Setting the host, just a shortcut"""
+        self.conf['iperf']['host'].set(host)
+
+    def run_test(self):
+        """Runs the test num_tests time and save the results"""
         cmd = str(self.conf['iperf'])
-        print "your actual configuration is %s, press y when ready to test" % self.testConf
-        while True:
-            ans = raw_input("y/n")
-            if ans == "n":
-                print "exiting"
-                return
-            elif ans == "y":
-                print "starting the test"
-                break
-            else:
-                continue
+        print "your actual configuration is %s" % self.test_conf
+        # starting the test
+        self.test_conf["start"] = self.tempo()
+        print "executing %s" % cmd
         for _ in range(self.num_tests):
-            _, w, _ = os.popen3(cmd)
+            _, w, e = os.popen3(cmd)
             for line in w.readlines():
-                self.output.parseLine(line)
-        self.res = self.output.getValues()
-        print self.res
+                if VERBOSE:
+                    print "line: ", line
+                self.analyzer.parse_line(line)
+                
+        self.test_conf["end"] = self.tempo()
+        self.test_conf["result"] = self.analyzer.get_values()
+        # =========================================================================
+        # = IMPORTANT, if given twice the same conf it overwrites the old results =
+        # =========================================================================
+        self.output[str(self.conf)] = self.test_conf
+        self.output.sync()
+        self.output.close()
+        # self.output[repr(self.test_conf)] = self.analyzer.get_values()
+        # Only plotting if gnuplot available
         if GNUPLOT:
             self.plotter = Plotter("testing", "kbs")
-            self.plotter.addData(self.res, "testing")
+            self.plotter.add_data(self.test_conf["result"], "testing")
             self.plotter.plot()
 
 
@@ -136,35 +157,35 @@ class IperfOutput(object):
         self.result = []
 
     # TODO creating an iterator
-    def parseLine(self, line):
+    def parse_line(self, line):
         """parse a single line
         FIXME Creating a dictionary for every line isn't very efficient"""
+        if VERBOSE:
+            print "analyzing line %s " % line
         result = {}
-        # calling the function defined in subclasses
+        # TCP case
         if not(self.udp):
-            kbs = self.parse_udp(line)
-            print "obtained ", kbs
-            result = dict(zip(self.fromIdx.keys(), [None] * len(self.fromIdx.keys())))
-            result['kbs'] = kbs
+            kbs = self.parse_tcp(line)
+            result[self.value] = kbs
+        # UDP case
         else:
-            values = self.parse_tcp(line)
+            values = self.parse_udp(line)
         # doing nothing if useless line
             if not(values):
                 return
             for el in self.fromIdx.iterkeys():
                 result[self.fromIdx[el]] = values[el]
         self.result.append(result)
+        return result # FIXME create an iterator with next, __iter__
     
     def parseFile(self, filename):
         "Takes the filename"
         for line in open(filename):
-            self.parseLine(line)
+            self.parse_line(line)
     
-    def getValues(self):
+    def get_values(self):
         return [el[self.value] for el in self.result]
-    # 
-    # def parse_udp(self, line):
-    #     assert 0, 'parse_udp must be implemented'
+
 
 class IperfOutCsv(IperfOutput):
     """Handling iperf output in csv mode"""
@@ -176,9 +197,8 @@ class IperfOutCsv(IperfOutput):
         self.splitted = lambda line: line.strip().split(',')
     
     def _translate(self, val):
-        print "passing", int(val)
         v = int(val)
-        return Size(v).translate('K')
+        return str(Size(v, 'B').translate('K'))
 
     def parse_tcp(self, line):
         """Returning just the bandwidth value in KB/s"""
@@ -188,14 +208,15 @@ class IperfOutCsv(IperfOutput):
         ll = self.splitted(line)
         if len(ll) >= 11:
             # FIXME a bit ugly way to translate last value to kbs
-            ll[-1] = ll[-1]._translate()
+            kbsidx = self.positions[self.value]
+            ll[kbsidx] = self._translate(ll[kbsidx])
             return ll
         else: 
             return None
         
 class IperfOutPlain(IperfOutput):
     """Handling iperf not in csv mode"""
-    def __init__(self):
+    def __init__(self, udp = True):
         self.positions = {
             "kbs" : 4, "jitter" : 5, "missed" : 6, "total" : 7
         }
@@ -206,8 +227,8 @@ class IperfOutPlain(IperfOutput):
         """if using tcp mode changes everything, line becomes for example 
         [  3]  0.0- 5.0 sec  3312 KBytes    660 KBytes/sec
         Only gives back the bandwidth"""
-        return self.__fun(self.num.findall(line))
-        
+        return self.__fun(self.num.findall(line)[-1])
+    
     def parse_udp(self, line):
         if re.search(r"\bms\b", line):
             num = re.compile(r"(\d+)(?:\.(\d+))?")
@@ -286,7 +307,6 @@ class ConstOpt(Opt):
     def valid(self, value):
         return (not(self.regex) or re.match(self.regex, value))
     
-    # FIXME strange TypeError: cannot concatenate 'str' and 'NoneType' objects error
     def choices(self):
         if not(self.regex):
             return "whatever"
@@ -324,7 +344,7 @@ class Plotter:
         self.plotter.set_label('xlabel', "step")
         self.plotter.set_label('ylabel', self.value)
 
-    def addData(self, data, name):
+    def add_data(self, data, name):
         """Add another data set"""
         # always keeping last maxGraphs elements in the item list and redraw them
         self.last = data
@@ -359,10 +379,12 @@ class Conf:
         "speed"             : ParamOpt("speed", 11, [1, 2, 5.5, 11]),
         # "mode"              : ParamOpt("mode", "g", ["g", "b"]),
         "frag_threshold"    : ParamOpt("frag_threshold", 1500, range(256,1501)),
-        "rts_threshold"     : ParamOpt("rts_threshold", 2436, range(256, 2437))
+        "rts_threshold"     : ParamOpt("rts_threshold", 2436, range(256, 2437)),
+        "ssid"              : ConstOpt("ssid", "NCB"),
+        "ip"                : ConstOpt("ip", "192.168.10.10")
     }
     nicConf = {
-        
+        "speed"             : ParamOpt("speed", 11, [1, 2, 5.5, 11])
     }
     def __init__(self, conf_file = "config.ini"):
         """"General configuration"""
@@ -390,7 +412,7 @@ class Conf:
         for v in self.configuration.values():
             print v.def_conf
     
-    def getOpt(self, section, name, opt):
+    def get_option(self, section, name, opt):
         try:
             # FIXME not really nice programming style
             t = type(opt.value)
@@ -423,11 +445,11 @@ class Conf:
             changed[key] = val.changed()
         return changed
 
-    def updateConf(self):
+    def update_conf(self):
         """Merge default configuration with configuration written to file"""
         for sec, conf in self.configuration.iteritems():
             for key, opt in conf.conf.iteritems():
-                self.getOpt(sec, key, opt)
+                self.get_option(sec, key, opt)
 
 class SectionConf:
     """Configuration class, working on a dictionary of
@@ -457,9 +479,12 @@ class SectionConf:
                 changed[key] = self.conf[key]
         return SectionConf("diff", changed)
     
-    def writeOptions(self):
+    def write_options(self):
         """Writes out options"""
         for el, val in self.def_conf.items():
             print el, val
             print el, val.choices()
         
+if __name__ == '__main__':
+    test = TestConf(10, "koalawlan")
+    test.run_test()
