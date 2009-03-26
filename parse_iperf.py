@@ -13,6 +13,8 @@ import os
 import ConfigParser
 import copy
 import time
+import code
+import getopt
 
 GNUPLOT = True
 try:
@@ -30,20 +32,50 @@ except ImportError, i:
 
 VERBOSE = True
 
+speeds = ['1M', '2M', '5.5M', '10M']
+frag = []
+
+def interactive():
+    def frag():
+        for f in frag:
+            pass
+    def speedy():
+        for s in speeds:
+            print "set speed %s on your access point" % s
+            while True:
+                ans = raw_input("press Y when done")
+                if ans == "Y": break
+                else: continue
+        
+            test.conf['iperf']['band'].set(s)
+            test.conf['ap']['speed'].set(s)
+            test.run_tests()
+    print "starting tests, edit config.ini with the informations about your access point"
+    # magic number
+    test = TestConf(4)
+    host = raw_input("which host is your server")
+    test.conf['iperf']['host'].set(host)
+    speedy()
+    
 # ==========================
 # = Configuration analysis =
 # ==========================
 class TestConf:
-    def __init__(self, num_tests, host):
+    def __init__(self, num_tests, conf = None):
         """docstring for __init__"""
         self.num_tests = num_tests
-        self.conf = Conf()
-        self.conf['iperf']['time'].set(20)
-        self.conf['iperf']['host'].set(host)
-        self.analyzer = IperfOutPlain()
+        if not(conf):
+            self.conf = Conf()
+        else: self.conf = conf
+        
+        # udp = self.conf['iperf']['udp'].value
+        # leaving default with csv
+        self.analyzer = IperfOutPlain(udp = True)
+        self.conf['iperf']['csv'].unset()
         date = time.strftime("%d-%m-%Y", time.localtime())
-        self.tempo = lambda: time.strftime("%H:%M", time.localtime())
+        self.get_time = lambda: time.strftime("%H:%M", time.localtime())
         self.output = shelve.open("test_result-" + date)
+        # The None values are filled before written to shelve dictionary
         self.test_conf = {
             "platform"  : os.uname(),
             "conf"      : self.conf,
@@ -55,25 +87,22 @@ class TestConf:
     def __repr__(self):
         return repr(self.test_conf)
 
-    def set_host(self, host):
-        """Setting the host, just a shortcut"""
-        self.conf['iperf']['host'].set(host)
-
-    def run_test(self):
+    def run_tests(self):
         """Runs the test num_tests time and save the results"""
         cmd = str(self.conf['iperf'])
         print "your actual configuration is %s" % self.test_conf
-        # starting the test
-        self.test_conf["start"] = self.tempo()
+        self.test_conf["start"] = self.get_time()
         print "executing %s" % cmd
-        for _ in range(self.num_tests):
+        for counter in range(self.num_tests):
+            print "%d))\t" % counter,
             _, w, e = os.popen3(cmd)
             for line in w.readlines():
-                if VERBOSE:
-                    print "line: ", line
-                self.analyzer.parse_line(line)
+                val = self.analyzer.parse_line(line)
+                # only when "good lines"
+                if val:
+                    print "%s\n" % val[self.analyzer.value]
                 
-        self.test_conf["end"] = self.tempo()
+        self.test_conf["end"] = self.get_time()
         self.test_conf["result"] = self.analyzer.get_values()
         # =========================================================================
         # = IMPORTANT, if given twice the same conf it overwrites the old results =
@@ -99,6 +128,7 @@ class Size:
         self.unit = unit
 
     def translate(self, unit):
+        """Returns the rounded translation in a different unit measure"""
         if unit not in self.units:
             raise ValueError, "can only choose " + self.units
         else:
@@ -106,6 +136,7 @@ class Size:
             return round(self.value * (pow(1024, offset)), 2)
 
     def findUnit(self):
+        """Finds the best unit misure for a number"""
         val = self.value
         un = self.unit
         while val > 1024 and self.units.index(un) < len(self.units):
@@ -160,8 +191,6 @@ class IperfOutput(object):
     def parse_line(self, line):
         """parse a single line
         FIXME Creating a dictionary for every line isn't very efficient"""
-        if VERBOSE:
-            print "analyzing line %s " % line
         result = {}
         # TCP case
         if not(self.udp):
@@ -178,7 +207,7 @@ class IperfOutput(object):
         self.result.append(result)
         return result # FIXME create an iterator with next, __iter__
     
-    def parseFile(self, filename):
+    def parse_file(self, filename):
         "Takes the filename"
         for line in open(filename):
             self.parse_line(line)
@@ -205,14 +234,11 @@ class IperfOutCsv(IperfOutput):
         return self._translate(self.splitted(line)[-1])
 
     def parse_udp(self, line):
-        ll = self.splitted(line)
-        if len(ll) >= 11:
-            # FIXME a bit ugly way to translate last value to kbs
-            kbsidx = self.positions[self.value]
-            ll[kbsidx] = self._translate(ll[kbsidx])
-            return ll
-        else: 
-            return None
+        fields = self.splitted(line)
+        # FIXME a bit ugly way to translate last value to kbs
+        kbsidx = self.positions[self.value]
+        fields[kbsidx] = self._translate(fields[kbsidx])
+        return fields
         
 class IperfOutPlain(IperfOutput):
     """Handling iperf not in csv mode"""
@@ -251,10 +277,11 @@ class Opt:
     def __init__(self, name, value = None):
         self.name = name
         self.value = value
+        self.setted = True
     
     def __repr__(self):
-        if not self.value:
-            return ("parameter " + self.name, + " not set")
+        if not self.setted:
+            return ''
         else:
             return (self.name + " " + str(self.value))
     
@@ -271,13 +298,17 @@ class Opt:
     # def choices(self):
     #     assert 0, 'choices must be implemented'
 
+    def unset(self):
+        """Unset the option, to disable representation"""
+        self.setted = False
+
     def set(self, value):
         """Setting the value only if validity check is passed"""
+        self.setted = True
         if self.valid(value):
             self.value = value
         else:
             raise ValueError, self.choices()
-        
 
 class BoolOpt(Opt):
     """Boolean option, if not set just give the null string"""
@@ -286,11 +317,12 @@ class BoolOpt(Opt):
         Opt.__init__(self, name, value)
 
     def __repr__(self):
-        if self.value:
-            return self.name
+        if not self.setted:
+            return ''
         else:
-            return ""
-
+            return self.name
+    
+    
     def valid(self, value):
         return value in (True, False)
     
@@ -362,21 +394,20 @@ class Plotter:
         new = Gnuplot.Data(self.last, with = "linespoint", title = self.items[-1].get_option("title"))
         self.items[-1] = new
         self.plot()
-        
 
 class Conf:
     # remind that boolean options are set to true by default
     iperfConf = {
         "host"  : ConstOpt("-c", "192.168.10.30"),
         "udp"   : BoolOpt("-u"),
-        # "band"  : ParamOpt("-b", 1, [1, 2, 5.5, 11]),
-        "dual"  : BoolOpt("-d", False),
+        "band"  : ParamOpt("-b", '1M', ['1M', '2M', '5.5M', '11M']),
+        # "dual"  : BoolOpt("-d", False),
         "time"  : ParamOpt("-t", 5, [5, 20, 30, 40]),
         "csv"   : BoolOpt("-y c", False),
         "format": ConstOpt("-f", "K")      # defaulting to kiloBytes
     }
     apConf = {
-        "speed"             : ParamOpt("speed", 11, [1, 2, 5.5, 11]),
+        "speed"             : ParamOpt("speed", '11M', ['1M', '2M', '5.5M', '11M']),
         # "mode"              : ParamOpt("mode", "g", ["g", "b"]),
         "frag_threshold"    : ParamOpt("frag_threshold", 1500, range(256,1501)),
         "rts_threshold"     : ParamOpt("rts_threshold", 2436, range(256, 2437)),
@@ -386,21 +417,20 @@ class Conf:
     nicConf = {
         "speed"             : ParamOpt("speed", 11, [1, 2, 5.5, 11])
     }
-    def __init__(self, conf_file = "config.ini"):
+    # TODO see if config file is necessary or not
+    def __init__(self): # , conf_file = "config.ini"):
         """"General configuration"""
-        self.conf_file = conf_file
         self.configuration = {
-            "iperf" : SectionConf("iperf", self.iperfConf),
+            # dirty trick to allow keeping the right order during visualization (creation of command)
+            "iperf" : SectionConf("iperf", self.iperfConf, order = ["host", "udp", "band", "time", "csv", "format"]),
             "ap"    : SectionConf("ap", self.apConf),
             "nic"   : SectionConf("nic", self.nicConf)
         }
-        self.reader = ConfigParser.ConfigParser()
-        self.reader.readfp(open(conf_file))
         self.writer = ConfigParser.ConfigParser()
         
     
     def __repr__(self):
-        return "\n".join([(key + ":\t" + val.__repr__()) for key, val in self.configuration.items()])
+        return "\n".join([(key + ":\t" + repr(val)) for key, val in self.configuration.items()])
         
     def __str__(self):
         return self.__repr__()
@@ -408,7 +438,7 @@ class Conf:
     def __getitem__(self, idx):
         return self.configuration[idx]
         
-    def defConf(self):
+    def def_conf(self):
         for v in self.configuration.values():
             print v.def_conf
     
@@ -432,7 +462,7 @@ class Conf:
             except ValueError, e:
                 print "not valid value for %s in %s keeping default" % (name, section)
                 
-    def showConf(self):
+    def show_conf(self):
         for sec, val in self.configuration.items():
             self.writer.add_section(sec)
             for key, v in val.conf.items():
@@ -454,22 +484,32 @@ class Conf:
 class SectionConf:
     """Configuration class, working on a dictionary of
     configurations parameters
-    Using ConfigParser to write / read configuration parameters"""
-    def __init__(self, name, def_conf):
+    Using ConfigParser to write / read configuration parameters
+    order changes only the visualization order if not null"""
+    def __init__(self, name, def_conf, order = []):
+        self.order = order
         self.name = name
         # using deepcopy instead of =, otherwise it's just the same dictionary
         self.def_conf = def_conf
         self.conf = copy.deepcopy(self.def_conf)
     
     def __repr__(self):
-        return ' '.join([self.name] + [el.__repr__() for el in self.conf.values()])
+        opts = []
+        if self.order:
+            if len(self.order) != len(self.conf.keys()):
+                raise Exception, "order must be complete if given"
+            else:
+                opts = [repr(self.conf[key]) for key in self.order]
+        else:
+            opts = [repr(el) for el in self.conf.values()]
+        return ' '.join([self.name] + opts)
     
     def __str__(self):
-        return self.__repr__()
+        return repr(self)
     
     def __getitem__(self, idx):
         return self.conf[idx]
-
+    
     # FIXME not working, doesn't get the right thing
     def changed(self):
         """Defining the minus operator on configurations"""
@@ -482,7 +522,6 @@ class SectionConf:
     def write_options(self):
         """Writes out options"""
         for el, val in self.def_conf.items():
-            print el, val
             print el, val.choices()
         
 if __name__ == '__main__':
