@@ -51,7 +51,6 @@ def interactive():
             test.conf['ap']['speed'].set(s)
             test.run_tests()
     print "starting tests, edit config.ini with the informations about your access point"
-    # magic number
     test = TestConf(4)
     host = raw_input("which host is your server")
     test.conf['iperf']['host'].set(host)
