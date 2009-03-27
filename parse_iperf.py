@@ -18,8 +18,6 @@ import getopt
 
 VERBOSE = False
 
-
-
 class Size:
     """ Converting from one unit misure to the other """
     def __init__(self, value, unit = 'B'):
