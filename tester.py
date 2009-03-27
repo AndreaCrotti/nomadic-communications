@@ -20,6 +20,9 @@ class Cnf:
 
     def __getitem__(self, idx):
         return self.conf[idx]
+    
+    def __eq__(self, other):
+        return self.conf == other.conf
 
     def to_conf(self):
         self.conf = {}
@@ -53,7 +56,7 @@ class IperfConf(Cnf):
 class ApConf(Cnf):
     def __init__(self, conf):
         self.raw_conf = conf
-        par = ["speed", "rts_threshold", "frag_threshold"]
+        par = ["speed", "rts_threshold", "frag_threshold", "ip", "ssid", "channel", "comment"]
         # no need of flag
         self.options = dict(zip(par, par))
         Cnf.__init__(self, "ap")
@@ -80,21 +83,49 @@ class Configure:
         self.conf = {
             "iperf" : IperfConf(self.get_conf("iperf")),
             "ap"    : ApConf(self.get_conf("ap")),
-            "nic"   : NicConf(self.get_conf("nic"))
+            "nic"   : NicConf(self.get_conf("nic")),
+            "test"  : TestConf(self.get_conf("test"))
         }
-        self.sections = ParamOpt("sections", "iperf", self.conf.keys()) 
+        self.sections = ParamOpt("sections", "iperf", self.conf.keys())
+        # not linking, really copying the data structure
+        self.lastconf = deepcopy(self.conf)
 
+    def __repr__(self):
+        return '\n'.join([ (repr(key) + " --> " + repr(val)) for key, val in self.lastconf.items()])
+            
+    def __getitem__(self, idx):
+        return self.conf[idx]
+
+    def __eq__(self, other):
+        return self.conf == other.conf
+    
     def make_conf(self):
         print "starting interactive configuration"
-        self.sections.iter_set()
-        # o = self.conf[self.sections.value].options.keys()
-        params = self.conf[self.sections.value].params()
-        opts = ParamOpt("parameters", params[0], params)
-        opts.iter_set()
-        for c in self.scan_conf(self.sections.value, opts.value):
-            print c
-        
-
+        tmpconf = self.lastconf
+        while True:
+            print "your actual configuration is:\n%s\nChoose what you want to do:\n" % repr(self)
+            n = input("1) configure another parameter\n2) run the test \n3) quit\n\n")
+            if n == 1:
+                self.sections.iter_set()
+                sec = self.sections.value
+                params = tmpconf[sec].params()
+                opts = ParamOpt("parameters", params[0], params)
+                opts.iter_set()
+                # default if not set
+                opt = opts.value
+                tmpconf[sec][opt].iter_set()
+                continue
+            elif n == 2:
+                print "running the test"
+                Tester(tmpconf).run_tests()
+                break
+            elif n == 3:
+                print "quitting"
+                break
+            else:
+                print "input not understood"
+                continue
+                
     def get_conf(self, section):
         conf = {}
         for k in self.reader.options(section):
@@ -104,12 +135,100 @@ class Configure:
             else:
                 conf[k] = val
         return conf
+
+class Plotter:
+    """
+        General plotter of data in array format
+        maxGraphs indicates the maximum number of "functions" to be plotted
+        at the same time
+    """
+    def __init__(self, title, value, maxGraphs = 2):
+        self.title = title
+        self.value = value
+        self.items = []
+        self.last = []
+        self.maxGraphs = maxGraphs
+        self.plotter = Gnuplot.Gnuplot(persist = 1)
+        self.plotter.set_string("title", title)
+        self.plotter.set_range('yrange', (0,"*"))
+        self.plotter.set_label('xlabel', "step")
+        self.plotter.set_label('ylabel', self.value)
+
+    def add_data(self, data, name):
+        """Add another data set"""
+        # always keeping last maxGraphs elements in the item list and redraw them
+        self.last = data
+        new = Gnuplot.Data(data, title = name, with = "linespoint")
+        self.items = self.items[ -self.maxGraphs + 1 : ] + [new]
+
+    def plot(self):
+        """docstring for plot"""
+        self.plotter.plot(*self.items)
     
-    def scan_conf(self, section, param):
-        """Only one parameter at a time can change"""
-        for x in self.conf[section][param].get_next():
-            self.conf[section][param].set(x)
-            yield self.conf
-            
+    def update(self, data):
+        """Adds data to the last data set"""
+        # FIXME doesn't have to redraw everything every time 
+        self.last += data
+        new = Gnuplot.Data(self.last, with = "linespoint", title = self.items[-1].get_option("title"))
+        self.items[-1] = new
+        self.plot()
+    
+# ==========================
+# = Configuration analysis =
+# ==========================
+class Tester:
+    def __init__(self, conf):
+        """Class which encapsulates other informations about the test and run it"""
+        self.conf = conf
+        # leaving default with csv
+        self.analyzer = IperfOutPlain(udp = True)
+        # date = time.strftime("%d-%m-%Y", time.localtime())
+        self.get_time = lambda: time.strftime("%H:%M", time.localtime())
+        self.output = shelve.open("test_result")
+        self.num_tests = int(self.conf['test']['num_tests'].value)
+        if self.output.has_key(str(self.conf)):
+            print "you've already done a test with this configuration"
+        # The None values are filled before written to shelve dictionary
+        self.test_conf = {
+            "platform"  : os.uname(),
+            "conf"      : self.conf,
+            "start"     : None,
+            "end"       : None,
+            "result"    : None
+        }
+    
+    def __repr__(self):
+        return "\n\n".join([ repr(key) + ":\n" + repr(val) for key, val in self.test_conf.items() ])
+
+    def run_tests(self):
+        """Runs the test num_tests time and save the results"""
+        cmd = str(self.conf['iperf'])
+        self.test_conf["start"] = self.get_time()
+        print "executing %s" % cmd
+        for counter in range(self.num_tests):
+            print "%d))\t" % counter,
+            _, w, e = os.popen3(cmd)
+            for line in w.readlines():
+                val = self.analyzer.parse_line(line)
+                # only when "good lines"
+                if val:
+                    print " %s\n" % val[self.analyzer.value]
+                
+        self.test_conf["end"] = self.get_time()
+        self.test_conf["result"] = self.analyzer.get_values()
+        # =========================================================================
+        # = IMPORTANT, if given twice the same conf it overwrites the old results =
+        # =========================================================================
+        self.output[str(self.conf)] = self.test_conf
+        self.output.sync()
+        self.output.close()
+        # self.output[repr(self.test_conf)] = self.analyzer.get_values()
+        # Only plotting if gnuplot available
+        if GNUPLOT:
+            self.plotter = Plotter("testing", "kbs")
+            self.plotter.add_data(self.test_conf["result"], "testing")
+            self.plotter.plot()
+
+
 if __name__ == '__main__':
     interactive()
