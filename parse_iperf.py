@@ -23,38 +23,8 @@ except ImportError, i:
     print "you will be unable to plot in real time"
     GNUPLOT = False
 
-STAT = True
-try:
-    from statlib import stats
-except ImportError, i:
-    print "not able to do the statistical analysis"
-    STAT = False
+VERBOSE = False
 
-VERBOSE = True
-
-speeds = ['1M', '2M', '5.5M', '10M']
-frag = []
-
-def interactive():
-    def frag():
-        for f in frag:
-            pass
-    def speedy():
-        for s in speeds:
-            print "set speed %s on your access point" % s
-            while True:
-                ans = raw_input("press Y when done")
-                if ans == "Y": break
-                else: continue
-        
-            test.conf['iperf']['band'].set(s)
-            test.conf['ap']['speed'].set(s)
-            test.run_tests()
-    print "starting tests, edit config.ini with the informations about your access point"
-    test = TestConf(4)
-    host = raw_input("which host is your server")
-    test.conf['iperf']['host'].set(host)
-    speedy()
     
 # ==========================
 # = Configuration analysis =
@@ -291,12 +261,6 @@ class Opt:
         """checking equality of option types, also type must be equal"""
         return type(self) == type(other) and self.name == other.name and self.value == other.value
 
-    # def valid(self):
-    #     assert 0, 'valid must be implemented'
-    # 
-    # def choices(self):
-    #     assert 0, 'choices must be implemented'
-
     def unset(self):
         """Unset the option, to disable representation"""
         self.setted = False
@@ -347,15 +311,36 @@ class ConstOpt(Opt):
 class ParamOpt(Opt):
     """Option with a parameter
     This takes a list of possible values and checks every time if input is safe"""
-    def __init__(self, name, value = None, valList = []):
-        self.valList = valList        
+    def __init__(self, name, value, val_list):
+        self.val_list = val_list        
         Opt.__init__(self, name, value)
 
+    def iter_set(self):
+        while True:
+            options = dict(zip(range(len(self.val_list)), self.val_list))
+            opts_string = "\n".join(repr(key) + ")\t" + repr(val) for key, val in options.items())
+            try:
+                val = raw_input("set the parameter %s to a value:\n%s\n\n" % (self.name, opts_string))
+                if val == '': # keeping default value
+                    break
+                try:
+                    idx = options[int(val)]
+                except KeyError:
+                    print "value not in list"
+                    continue
+                else:
+                    # FIXME ugly hack, explicit casting with type
+                    self.set(type(self.value)(idx))
+            except ValueError, e:
+                continue
+            else:
+                break
+
     def valid(self, value):
-        return value in self.valList
+        return value in self.val_list
     
     def choices(self):
-        return "must be in list: " + ', '.join(map(str, self.valList))
+        return "must be in list: " + ', '.join(map(str, self.val_list))
 
 class Plotter:
     """
@@ -393,135 +378,6 @@ class Plotter:
         new = Gnuplot.Data(self.last, with = "linespoint", title = self.items[-1].get_option("title"))
         self.items[-1] = new
         self.plot()
-
-class Conf:
-    # remind that boolean options are set to true by default
-    iperfConf = {
-        "host"  : ConstOpt("-c", "192.168.10.30"),
-        "udp"   : BoolOpt("-u"),
-        "band"  : ParamOpt("-b", '1M', ['1M', '2M', '5.5M', '11M']),
-        # "dual"  : BoolOpt("-d", False),
-        "time"  : ParamOpt("-t", 5, [5, 20, 30, 40]),
-        "csv"   : BoolOpt("-y c", False),
-        "format": ConstOpt("-f", "K")      # defaulting to kiloBytes
-    }
-    apConf = {
-        "speed"             : ParamOpt("speed", '11M', ['1M', '2M', '5.5M', '11M']),
-        # "mode"              : ParamOpt("mode", "g", ["g", "b"]),
-        "frag_threshold"    : ParamOpt("frag_threshold", 1500, range(256,1501)),
-        "rts_threshold"     : ParamOpt("rts_threshold", 2436, range(256, 2437)),
-        "ssid"              : ConstOpt("ssid", "NCB"),
-        "ip"                : ConstOpt("ip", "192.168.10.10")
-    }
-    nicConf = {
-        "speed"             : ParamOpt("speed", 11, [1, 2, 5.5, 11])
-    }
-    # TODO see if config file is necessary or not
-    def __init__(self): # , conf_file = "config.ini"):
-        """"General configuration"""
-        self.configuration = {
-            # dirty trick to allow keeping the right order during visualization (creation of command)
-            "iperf" : SectionConf("iperf", self.iperfConf, order = ["host", "udp", "band", "time", "csv", "format"]),
-            "ap"    : SectionConf("ap", self.apConf),
-            "nic"   : SectionConf("nic", self.nicConf)
-        }
-        self.writer = ConfigParser.ConfigParser()
-        
-    
-    def __repr__(self):
-        return "\n".join([(key + ":\t" + repr(val)) for key, val in self.configuration.items()])
-        
-    def __str__(self):
-        return self.__repr__()
-
-    def __getitem__(self, idx):
-        return self.configuration[idx]
-        
-    def def_conf(self):
-        for v in self.configuration.values():
-            print v.def_conf
-    
-    def get_option(self, section, name, opt):
-        try:
-            # FIXME not really nice programming style
-            t = type(opt.value)
-            if t == int:
-                value = self.reader.getint(section, name)
-            elif t == bool:
-                value = self.reader.getboolean(section, name)
-            else:
-                value = self.reader.get(section, name)
-                
-        except Exception:
-            print "no option for ", name
-            
-        else:
-            try:
-                opt.set(value)
-            except ValueError, e:
-                print "not valid value for %s in %s keeping default" % (name, section)
-                
-    def show_conf(self):
-        for sec, val in self.configuration.items():
-            self.writer.add_section(sec)
-            for key, v in val.conf.items():
-                self.writer.set(sec, key, v.value)
-        self.writer.write(sys.stdout)
-
-    def changed(self):
-        changed = {}
-        for key, val in self.configuration.iteritems():
-            changed[key] = val.changed()
-        return changed
-
-    def update_conf(self):
-        """Merge default configuration with configuration written to file"""
-        for sec, conf in self.configuration.iteritems():
-            for key, opt in conf.conf.iteritems():
-                self.get_option(sec, key, opt)
-
-class SectionConf:
-    """Configuration class, working on a dictionary of
-    configurations parameters
-    Using ConfigParser to write / read configuration parameters
-    order changes only the visualization order if not null"""
-    def __init__(self, name, def_conf, order = []):
-        self.order = order
-        self.name = name
-        # using deepcopy instead of =, otherwise it's just the same dictionary
-        self.def_conf = def_conf
-        self.conf = copy.deepcopy(self.def_conf)
-    
-    def __repr__(self):
-        opts = []
-        if self.order:
-            if len(self.order) != len(self.conf.keys()):
-                raise Exception, "order must be complete if given"
-            else:
-                opts = [repr(self.conf[key]) for key in self.order]
-        else:
-            opts = [repr(el) for el in self.conf.values()]
-        return ' '.join([self.name] + opts)
-    
-    def __str__(self):
-        return repr(self)
-    
-    def __getitem__(self, idx):
-        return self.conf[idx]
-    
-    # FIXME not working, doesn't get the right thing
-    def changed(self):
-        """Defining the minus operator on configurations"""
-        changed = {}
-        for key, val in self.def_conf.iteritems():
-            if self.conf[key] != val:
-                changed[key] = self.conf[key]
-        return SectionConf("diff", changed)
-    
-    def write_options(self):
-        """Writes out options"""
-        for el, val in self.def_conf.items():
-            print el, val.choices()
         
 if __name__ == '__main__':
     test = TestConf(10, "koalawlan")
