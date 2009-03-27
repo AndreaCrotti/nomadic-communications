@@ -16,75 +16,8 @@ import time
 import code
 import getopt
 
-GNUPLOT = True
-try:
-    import Gnuplot
-except ImportError, i:
-    print "you will be unable to plot in real time"
-    GNUPLOT = False
-
 VERBOSE = False
 
-    
-# ==========================
-# = Configuration analysis =
-# ==========================
-class TestConf:
-    def __init__(self, num_tests, conf = None):
-        """docstring for __init__"""
-        self.num_tests = num_tests
-        if not(conf):
-            self.conf = Conf()
-        else: self.conf = conf
-        
-        # udp = self.conf['iperf']['udp'].value
-        # leaving default with csv
-        self.analyzer = IperfOutPlain(udp = True)
-        self.conf['iperf']['csv'].unset()
-        date = time.strftime("%d-%m-%Y", time.localtime())
-        self.get_time = lambda: time.strftime("%H:%M", time.localtime())
-        self.output = shelve.open("test_result-" + date)
-        # The None values are filled before written to shelve dictionary
-        self.test_conf = {
-            "platform"  : os.uname(),
-            "conf"      : self.conf,
-            "start"     : None,
-            "end"       : None,
-            "result"    : None
-        }
-    
-    def __repr__(self):
-        return repr(self.test_conf)
-
-    def run_tests(self):
-        """Runs the test num_tests time and save the results"""
-        cmd = str(self.conf['iperf'])
-        print "your actual configuration is %s" % self.test_conf
-        self.test_conf["start"] = self.get_time()
-        print "executing %s" % cmd
-        for counter in range(self.num_tests):
-            print "%d))\t" % counter,
-            _, w, e = os.popen3(cmd)
-            for line in w.readlines():
-                val = self.analyzer.parse_line(line)
-                # only when "good lines"
-                if val:
-                    print "%s\n" % val[self.analyzer.value]
-                
-        self.test_conf["end"] = self.get_time()
-        self.test_conf["result"] = self.analyzer.get_values()
-        # =========================================================================
-        # = IMPORTANT, if given twice the same conf it overwrites the old results =
-        # =========================================================================
-        self.output[str(self.conf)] = self.test_conf
-        self.output.sync()
-        self.output.close()
-        # self.output[repr(self.test_conf)] = self.analyzer.get_values()
-        # Only plotting if gnuplot available
-        if GNUPLOT:
-            self.plotter = Plotter("testing", "kbs")
-            self.plotter.add_data(self.test_conf["result"], "testing")
-            self.plotter.plot()
 
 
 class Size:
@@ -341,44 +274,3 @@ class ParamOpt(Opt):
     
     def choices(self):
         return "must be in list: " + ', '.join(map(str, self.val_list))
-
-class Plotter:
-    """
-        General plotter of data in array format
-        maxGraphs indicates the maximum number of "functions" to be plotted
-        at the same time
-    """
-    def __init__(self, title, value, maxGraphs = 2):
-        self.title = title
-        self.value = value
-        self.items = []
-        self.last = []
-        self.maxGraphs = maxGraphs
-        self.plotter = Gnuplot.Gnuplot(persist = 1)
-        self.plotter.set_string("title", title)
-        self.plotter.set_range('yrange', (0,"*"))
-        self.plotter.set_label('xlabel', "step")
-        self.plotter.set_label('ylabel', self.value)
-
-    def add_data(self, data, name):
-        """Add another data set"""
-        # always keeping last maxGraphs elements in the item list and redraw them
-        self.last = data
-        new = Gnuplot.Data(data, title = name, with = "linespoint")
-        self.items = self.items[ -self.maxGraphs + 1 : ] + [new]
-
-    def plot(self):
-        """docstring for plot"""
-        self.plotter.plot(*self.items)
-    
-    def update(self, data):
-        """Adds data to the last data set"""
-        # FIXME doesn't have to redraw everything every time 
-        self.last += data
-        new = Gnuplot.Data(self.last, with = "linespoint", title = self.items[-1].get_option("title"))
-        self.items[-1] = new
-        self.plot()
-        
-if __name__ == '__main__':
-    test = TestConf(10, "koalawlan")
-    test.run_test()
