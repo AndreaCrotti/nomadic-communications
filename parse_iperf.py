@@ -246,27 +246,6 @@ class ParamOpt(Opt):
         self.val_list = val_list        
         Opt.__init__(self, name, value)
 
-    def iter_set(self):
-        while True:
-            options = dict(zip(range(len(self.val_list)), self.val_list))
-            opts_string = "\n".join(repr(key) + ")\t" + repr(val) for key, val in options.items())
-            try:
-                val = raw_input("set the parameter %s to a value:\n%s\n\n" % (self.name, opts_string))
-                if val == '': # keeping default value
-                    break
-                try:
-                    idx = options[int(val)]
-                except KeyError:
-                    print "value not in list"
-                    continue
-                else:
-                    # FIXME ugly hack, explicit casting with type
-                    self.set(type(self.value)(idx))
-            except ValueError, e:
-                continue
-            else:
-                break
-
     def valid(self, value):
         return value in self.val_list
     
