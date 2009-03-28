@@ -10,6 +10,38 @@ def interactive():
     c = Configure()
     c.make_conf()
 
+class MenuMaker:
+    """Generates a nice menu"""
+    def __init__(self, choices, values = None):
+        self.choices = choices
+        if not values:
+            self.values = range(len(choices))
+            self.tipo = int
+        else:
+            self.values = values
+            self.tipo = type(values[0])
+        self.couples = zip(self.choices, self.values)
+        self.menu = dict(zip(self.choices, self.values))
+        
+    def __repr__(self):
+        return '\n'.join([repr(val) + ")\t" + repr(ch) for ch, val in self.couples])
+    
+    def __getitem__(self, idx):
+        if idx in self.values:
+            return dict(self.couples)[idx]
+        else:
+            raise KeyError
+        
+    def set(self):
+        while True:
+            print repr(self)
+            val = raw_input("make a choice:\n\n")
+            if val == '':
+                return self.values[0]
+            else:
+                val = self.tipo(val)
+                if val in self.values:
+                    return dict(self.couples)[val]
 
 class Cnf:
     def __init__(self, name):
@@ -23,6 +55,17 @@ class Cnf:
     
     def __eq__(self, other):
         return self.conf == other.conf
+
+    def __sub__(self, other):
+        diff = {}
+        for c in self.conf.keys():
+            if other.has_key(c) and self.conf[c] != other.conf[c]:
+                diff[c] = self.conf[c]
+        return diff
+
+    def to_latex(self):
+        """Returns a string representing the configuration in latex"""
+        pass
 
     def to_conf(self):
         self.conf = {}
@@ -98,7 +141,13 @@ class Configure:
 
     def __eq__(self, other):
         return self.conf == other.conf
-    
+
+    def __sub__(self, other):
+        """Differences from two configurations, returns a new small configuration"""
+        diff = {}
+        pass 
+        
+
     def make_conf(self):
         print "starting interactive configuration"
         tmpconf = self.lastconf
@@ -106,14 +155,11 @@ class Configure:
             print "your actual configuration is:\n%s\nChoose what you want to do:\n" % repr(self)
             n = input("1) configure another parameter\n2) run the test \n3) quit\n\n")
             if n == 1:
-                self.sections.iter_set()
-                sec = self.sections.value
-                params = tmpconf[sec].params()
-                opts = ParamOpt("parameters", params[0], params)
-                opts.iter_set()
-                # default if not set
-                opt = opts.value
-                tmpconf[sec][opt].iter_set()
+                sec = iter_set(self.conf.keys())
+                pars = tmpconf[sec].params()
+                opt = iter_set(pars)
+                val = iter_set(tmpconf[sec][opt].val_list)
+                tmpconf[sec][opt].set(val) # should not need to catch exceptions
                 continue
             elif n == 2:
                 print "running the test"
