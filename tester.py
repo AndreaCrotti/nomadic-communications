@@ -5,6 +5,7 @@ import re
 import sys
 import shelve
 import time
+import getopt
 from copy import deepcopy
 from parse_iperf import *
 
@@ -72,10 +73,13 @@ class Cnf:
     def __eq__(self, other):
         return self.conf == other.conf
 
+    def __neq__(self, other):
+        return not(self == other)
+
     def __sub__(self, other):
         diff = {}
         for c in self.conf.keys():
-            if other.has_key(c) and self.conf[c] != other.conf[c]:
+            if other.conf.has_key(c) and (self.conf[c] != other.conf[c]):
                 diff[c] = self.conf[c]
         return diff
 
@@ -119,7 +123,7 @@ class ApConf(Cnf):
     def __init__(self, conf):
         self.raw_conf = conf
         par = ["speed", "rts_threshold", "frag_threshold", "ip", "ssid", "channel", "comment"]
-        # no need of flag
+        # FIXME not really beatiful
         self.options = dict(zip(par, par))
         Cnf.__init__(self, "ap")
 
@@ -139,7 +143,11 @@ class TestConf(Cnf):
 
 class Configure:
     conf_file = 'config.ini'
+    subdir = 'test_configs'
     def __init__(self):
+        self.num = 1
+        self.sub_num = 1
+        self.auto = ["iperf"]
         self.reader = ConfigParser.ConfigParser()
         self.reader.readfp(open(self.conf_file))
         # setting also the order in this way,
@@ -165,34 +173,44 @@ class Configure:
     def __sub__(self, other):
         """Differences from two configurations, returns a new small configuration"""
         diff = {}
-        pass 
-        
+        for c in self.conf.keys():
+            if not(self.conf[c] == other.conf[c]):
+                diff[c] = self.conf[c] - other.conf[c]
+        return diff
+    
+    def make_config_file(self):
+        """Creates a new configuration and store it"""
+        while True:
+            print "insert the index of the next configuration"
+            self.make_conf()
 
     def make_conf(self):
+        def conf():
+            sec = menu_set(MenuMaker(self.conf.keys()))
+            # only take parameters, where there is a list of possible values
+            pars = tmpconf[sec].params()
+            opt = menu_set(MenuMaker(pars))
+            val = menu_set(MenuMaker(tmpconf[sec][opt].val_list))
+            tmpconf[sec][opt].set(val)
+            return False
+        
+        def run():
+            Tester(tmpconf).run_test()
+            return False
+
+        def quit():
+            print "quitting"
+            return True
+        
         print "starting interactive configuration"
         tmpconf = self.lastconf
+        
         while True:
             print "your actual configuration is:\n%s\nChoose what you want to do:\n" % str(self)
             questions = ["Configure another parameter", "Run the test", "Quit"]
             n = menu_set(MenuMaker(questions, key = "idx"))
-            if n == 0:
-                sec = menu_set(MenuMaker(self.conf.keys()))
-                # only take parameters, where there is a list of possible values
-                pars = tmpconf[sec].params()
-                opt = menu_set(MenuMaker(pars))
-                val = menu_set(MenuMaker(tmpconf[sec][opt].val_list))
-                tmpconf[sec][opt].set(val)
-                continue
-            elif n == 1:
-                print "running the test"
-                Tester(tmpconf).run_tests()
+            if [conf, run, quit][n]():
                 break
-            elif n == 2:
-                print "quitting"
-                break
-            else:
-                print "input not understood"
-                continue
                 
     def get_conf(self, section):
         conf = {}
@@ -251,7 +269,7 @@ class Tester:
         self.analyzer = IperfOutPlain()
         self.get_time = lambda: time.strftime("%H:%M", time.localtime())
         self.output = shelve.open("test_result")
-        self.num_tests = int(self.conf['test']['num_tests'].value)
+        # self.num_tests = int(self.conf['test']['num_tests'].value)
         if self.output.has_key(str(self.conf)):
             print "careful, you've already done a test with this configuration\n: %s" %\
                 str(self.conf)
@@ -267,16 +285,14 @@ class Tester:
     def __str__(self):
         return "\n\n".join([ str(key) + ":\n" + str(val) for key, val in self.test_conf.items() ])
 
-    def run_tests(self):
+    def run_test(self):
         """Runs the test num_tests time and save the results"""
         cmd = str(self.conf['iperf'])
         self.test_conf["start"] = self.get_time()
         print "executing %s" % cmd
-        for counter in range(self.num_tests):
-            print "%d))\t" % counter,
-            _, w, e = os.popen3(cmd)
-            for line in w.readlines():
-                self.analyzer.parse_line(line)
+        _, w, e = os.popen3(cmd)
+        for line in w.readlines():
+            self.analyzer.parse_line(line)
                 
         self.test_conf["end"] = self.get_time()
         self.test_conf["result"] = self.analyzer.result
@@ -286,8 +302,6 @@ class Tester:
         self.output[str(self.conf)] = self.test_conf
         self.output.sync()
         self.output.close()
-        # self.output[str(self.test_conf)] = self.analyzer.get_values()
-        # Only plotting if gnuplot available
         if GNUPLOT:
             self.plotter = Plotter("testing", "kbs")
             self.plotter.add_data(self.test_conf["result"]["values"], "testing")
@@ -295,4 +309,5 @@ class Tester:
 
 
 if __name__ == '__main__':
+    # TODO adding a simulation and verbosity flag
     interactive()

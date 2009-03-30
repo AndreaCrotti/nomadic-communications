@@ -12,36 +12,43 @@ import re
 import random
 import glob
 import time
+import ConfigParser
 from parse_iperf import *
 from tester import *
 
 TESTFILES = glob.glob("dataLab/logs/*.txt")
 
-class TestRunner:
-    """Putting all together and running the test, saving output with shelve"""
-    def __init__(self):
-        self.conf = Conf()
-        localOs = os.uname() 
-        self.testdb = shelve.open("testdb")
-        self.conf['iperf']['csv'].set(False)
-        self.conf['iperf']['host'].set("localhost")
-        self.conf['iperf']['time'].set(5)
-        self.iperfOut = IperfOutPlain()
-        self.plotter = Plotter("test", "kbs")
-            
-    def runTest(self, ntimes):
-        print "actual configuration is %s, modify %s to change conf" % (self.conf, self.conf.conf_file)
-        # for n in range(ntimes):
-        r, w, e = os.popen3(str(self.conf['iperf']))
+class TestCnf(unittest.TestCase):
+    def setUp(self):
+        self.iperf_conf = {
+            "speed" : ["1M", "2M"],
+            "time" : [1, 10, 20],
+            "host" : "lts",
+            "format" : "K",
+            "interval": [1,2,3]
+        }
+
+    def testIperf(self):
+        i = IperfConf(self.iperf_conf)
+        self.assertEqual(str(i), 'iperf -c lts -i 1 -b 1M -t 1 -f K')
+    
+    def testApConf(self):
+        pass
         
-        for line in w.readlines():
-            self.iperfOut.parse_line(line)
-                
-        print self.iperfOut.result
+
+class TestConfigure(unittest.TestCase):
+    def setUp(self):
+        self.c = Configure()
+        self.c1 = Configure()
+        self.c1['iperf']['host'].set("server")
+        self.c['ap']['speed'].set('11M')
+    
+    def testNeq(self):
+        self.assertEqual(str(self.c - self.c1), "{'iperf': {'host': -c lts}, 'ap': {'speed': speed 11M}}")
+        self.assertEqual(str(self.c1 - self.c), "{'iperf': {'host': -c server}, 'ap': {'speed': speed 1M}}")
+        self.assertTrue(self.c != self.c1)
 
 # TODO rewrite testIperfOutput
-        
-
 class TestSize(unittest.TestCase):
     def setUp(self):
         self.small = (Size(102301, 'B'), 99.90)
@@ -80,6 +87,7 @@ class TestConstOpt(unittest.TestCase):
     
     def testEq(self):
         self.assertEqual(ConstOpt("prova"), ConstOpt("prova"))
+        self.assertNotEqual(ConstOpt("prova"), ConstOpt("prova1"))
 
 class TestParamOpt(unittest.TestCase):
     def setUp(self):
@@ -95,6 +103,7 @@ class TestParamOpt(unittest.TestCase):
         
     def testEq(self):
         self.assertEqual(ParamOpt("param", "value", ["value", "value2"]), ParamOpt("param", "value", ["value", "value2"]))
+        self.assertNotEqual(ParamOpt("param", "value", ["value", "value2"]), ParamOpt("param", "value2", ["value", "value2"]))
     
 class TestBoolOpt(unittest.TestCase):
     def setUp(self):

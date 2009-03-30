@@ -112,10 +112,16 @@ class Opt:
             return ''
         else:
             return (self.name + " " + str(self.value))
+            
+    def __repr__(self):
+        return str(self)
     
     def __eq__(self, other):
         """checking equality of option types, also type must be equal"""
-        return type(self) == type(other) and self.name == other.name and self.value == other.value
+        return self.name == other.name and self.value == other.value
+    
+    def __ne__(self, other):
+        return not(self == other)
 
     def unset(self):
         """Unset the option, to disable representation"""
