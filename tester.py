@@ -12,43 +12,47 @@ def interactive():
 
 class MenuMaker:
     """Generates a nice menu"""
-    def __init__(self, choices, values = None):
+    def __init__(self, choices, key = "val"):
         self.choices = choices
-        if not values:
-            self.values = range(len(choices))
-            self.tipo = int
-        else:
-            self.values = values
-            self.tipo = type(values[0])
-        self.couples = zip(self.choices, self.values)
-        self.menu = dict(zip(self.choices, self.values))
+        self.key = key
+        self.default = self.choices[0]
+        self.menu = dict(enumerate(self.choices))
         
-    def __repr__(self):
-        return '\n'.join([repr(val) + ")\t" + repr(ch) for ch, val in self.couples])
+    def __str__(self):
+        return '\n'.join([str(i) + ")\t" + str(self.menu[i]) for i in range(len(self.choices))])
     
     def __getitem__(self, idx):
-        if idx in self.values:
-            return dict(self.couples)[idx]
-        else:
-            raise KeyError
+        if self.key == "val":
+            return self.menu[idx]
+        elif self.key == 'idx':
+            return idx
         
-    def set(self):
-        while True:
-            print repr(self)
-            val = raw_input("make a choice:\n\n")
-            if val == '':
-                return self.values[0]
-            else:
-                val = self.tipo(val)
-                if val in self.values:
-                    return dict(self.couples)[val]
+def menu_set(menu):
+    while True:
+        print str(menu)
+        val = raw_input("make a choice (default %s):\n\n" % str(menu.default))
+        if val == '':
+            return menu.default
+        else:
+            try:
+                return menu[int(val)]
+            except KeyError:
+                continue
+            except ValueError:
+                print "you must give integer input"
+                continue
+                
+def search_test(shelve_file):
+    pass
+
 
 class Cnf:
     def __init__(self, name):
+        self.conf = {}
         self.to_conf()
     
-    def __repr__(self):
-        return ' '.join([repr(val) for val in self.conf.values()])
+    def __str__(self):
+        return ' '.join([str(val) for val in self.conf.values()])
 
     def __getitem__(self, idx):
         return self.conf[idx]
@@ -68,7 +72,6 @@ class Cnf:
         pass
 
     def to_conf(self):
-        self.conf = {}
         for key in self.options.keys():
             v = self.raw_conf[key]
             if type(v) == list:
@@ -82,6 +85,9 @@ class Cnf:
     def params(self):
         return [k for k in self.conf.keys() if isinstance(self.conf[k], ParamOpt)]
     
+# =======================================================
+# = Subclasses of CNF, they only which options to parse =
+# =======================================================
 class IperfConf(Cnf):
     def __init__(self, conf):
         self.raw_conf = conf
@@ -89,12 +95,12 @@ class IperfConf(Cnf):
             "speed" : "-b",
             "host"  : "-c",
             "time"  : "-t",
-            "format" : "-f"
+            "format" :"-f"
         }
         Cnf.__init__(self, "iperf")
 
-    def __repr__(self):
-        return "iperf " + Cnf.__repr__(self)
+    def __str__(self):
+        return "iperf " + Cnf.__str__(self)
 
 class ApConf(Cnf):
     def __init__(self, conf):
@@ -104,11 +110,12 @@ class ApConf(Cnf):
         self.options = dict(zip(par, par))
         Cnf.__init__(self, "ap")
 
-class NicConf(Cnf):
+class ClientConf(Cnf):
     def __init__(self, conf):
         self.raw_conf = conf
-        self.options = dict(speed = "speed")
-        Cnf.__init__(self, "nic")
+        par = ["speed", "brand", "model", "driver"]
+        self.options = dict(zip(par, par))
+        Cnf.__init__(self, "client")
 
 class TestConf(Cnf):
     def __init__(self, conf):
@@ -126,15 +133,15 @@ class Configure:
         self.conf = {
             "iperf" : IperfConf(self.get_conf("iperf")),
             "ap"    : ApConf(self.get_conf("ap")),
-            "nic"   : NicConf(self.get_conf("nic")),
+            "client": ClientConf(self.get_conf("client")),
             "test"  : TestConf(self.get_conf("test"))
         }
         self.sections = ParamOpt("sections", "iperf", self.conf.keys())
         # not linking, really copying the data structure
         self.lastconf = deepcopy(self.conf)
 
-    def __repr__(self):
-        return '\n'.join([ (repr(key) + " --> " + repr(val)) for key, val in self.lastconf.items()])
+    def __str__(self):
+        return '\n'.join([ (str(key) + " --> " + str(val)) for key, val in self.lastconf.items()])
             
     def __getitem__(self, idx):
         return self.conf[idx]
@@ -152,20 +159,22 @@ class Configure:
         print "starting interactive configuration"
         tmpconf = self.lastconf
         while True:
-            print "your actual configuration is:\n%s\nChoose what you want to do:\n" % repr(self)
-            n = input("1) configure another parameter\n2) run the test \n3) quit\n\n")
-            if n == 1:
-                sec = iter_set(self.conf.keys())
+            print "your actual configuration is:\n%s\nChoose what you want to do:\n" % str(self)
+            questions = ["Configure another parameter", "Run the test", "Quit"]
+            n = menu_set(MenuMaker(questions, key = "idx"))
+            if n == 0:
+                sec = menu_set(MenuMaker(self.conf.keys()))
+                # only take parameters, where there is a list of possible values
                 pars = tmpconf[sec].params()
-                opt = iter_set(pars)
-                val = iter_set(tmpconf[sec][opt].val_list)
-                tmpconf[sec][opt].set(val) # should not need to catch exceptions
+                opt = menu_set(MenuMaker(pars))
+                val = menu_set(MenuMaker(tmpconf[sec][opt].val_list))
+                tmpconf[sec][opt].set(val)
                 continue
-            elif n == 2:
+            elif n == 1:
                 print "running the test"
                 Tester(tmpconf).run_tests()
                 break
-            elif n == 3:
+            elif n == 2:
                 print "quitting"
                 break
             else:
@@ -243,8 +252,8 @@ class Tester:
             "result"    : None
         }
     
-    def __repr__(self):
-        return "\n\n".join([ repr(key) + ":\n" + repr(val) for key, val in self.test_conf.items() ])
+    def __str__(self):
+        return "\n\n".join([ str(key) + ":\n" + str(val) for key, val in self.test_conf.items() ])
 
     def run_tests(self):
         """Runs the test num_tests time and save the results"""
@@ -268,7 +277,7 @@ class Tester:
         self.output[str(self.conf)] = self.test_conf
         self.output.sync()
         self.output.close()
-        # self.output[repr(self.test_conf)] = self.analyzer.get_values()
+        # self.output[str(self.test_conf)] = self.analyzer.get_values()
         # Only plotting if gnuplot available
         if GNUPLOT:
             self.plotter = Plotter("testing", "kbs")
