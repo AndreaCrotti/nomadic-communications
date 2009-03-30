@@ -3,8 +3,17 @@ import ConfigParser
 import os
 import re
 import sys
+import shelve
+import time
 from copy import deepcopy
 from parse_iperf import *
+
+GNUPLOT = True
+try:
+    import Gnuplot
+except ImportError, i:
+    print "you will be unable to plot in real time"
+    GNUPLOT = False
 
 def interactive():
     c = Configure()
@@ -53,6 +62,9 @@ class Cnf:
     
     def __str__(self):
         return ' '.join([str(val) for val in self.conf.values()])
+    
+    def __repr__(self):
+        return str(self)
 
     def __getitem__(self, idx):
         return self.conf[idx]
@@ -85,9 +97,9 @@ class Cnf:
     def params(self):
         return [k for k in self.conf.keys() if isinstance(self.conf[k], ParamOpt)]
     
-# =======================================================
-# = Subclasses of CNF, they only which options to parse =
-# =======================================================
+# ===============================================================
+# = Subclasses of CNF, they only contain which options to parse =
+# ===============================================================
 class IperfConf(Cnf):
     def __init__(self, conf):
         self.raw_conf = conf
@@ -95,7 +107,8 @@ class IperfConf(Cnf):
             "speed" : "-b",
             "host"  : "-c",
             "time"  : "-t",
-            "format" :"-f"
+            "format" :"-f",
+            "interval" : "-i"
         }
         Cnf.__init__(self, "iperf")
 
@@ -235,14 +248,13 @@ class Tester:
     def __init__(self, conf):
         """Class which encapsulates other informations about the test and run it"""
         self.conf = conf
-        # leaving default with csv
-        self.analyzer = IperfOutPlain(udp = True)
-        # date = time.strftime("%d-%m-%Y", time.localtime())
+        self.analyzer = IperfOutPlain()
         self.get_time = lambda: time.strftime("%H:%M", time.localtime())
         self.output = shelve.open("test_result")
         self.num_tests = int(self.conf['test']['num_tests'].value)
         if self.output.has_key(str(self.conf)):
-            print "you've already done a test with this configuration"
+            print "careful, you've already done a test with this configuration\n: %s" %\
+                str(self.conf)
         # The None values are filled before written to shelve dictionary
         self.test_conf = {
             "platform"  : os.uname(),
@@ -264,13 +276,10 @@ class Tester:
             print "%d))\t" % counter,
             _, w, e = os.popen3(cmd)
             for line in w.readlines():
-                val = self.analyzer.parse_line(line)
-                # only when "good lines"
-                if val:
-                    print " %s\n" % val[self.analyzer.value]
+                self.analyzer.parse_line(line)
                 
         self.test_conf["end"] = self.get_time()
-        self.test_conf["result"] = self.analyzer.get_values()
+        self.test_conf["result"] = self.analyzer.result
         # =========================================================================
         # = IMPORTANT, if given twice the same conf it overwrites the old results =
         # =========================================================================
@@ -281,7 +290,7 @@ class Tester:
         # Only plotting if gnuplot available
         if GNUPLOT:
             self.plotter = Plotter("testing", "kbs")
-            self.plotter.add_data(self.test_conf["result"], "testing")
+            self.plotter.add_data(self.test_conf["result"]["values"], "testing")
             self.plotter.plot()
 
 

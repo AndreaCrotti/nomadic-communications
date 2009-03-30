@@ -38,47 +38,8 @@ class TestRunner:
             self.iperfOut.parse_line(line)
                 
         print self.iperfOut.result
-        # self.plotter.add_data(self.iperfOut.getValues(), "data test")
-        # self.plotter.plot()
 
-class TestIperfOut(unittest.TestCase):
-    def setUp(self):
-        self.values = {
-            "csv"   :
-                {
-                    "tcp" : ("20090324101545,192.168.0.2,61364,192.168.0.1,5001,3,0.0-5.0,3350528,5360414", {'kbs': '5234.78'}),
-                    "udp" : (
-                                "20090314193213,172.16.201.131,5001,172.16.201.1,63132,3,0.0-10.0,1312710,1049881,0.838,0,893,0.000,0",
-                                {'kbs': '1025.27', 'total': '893', 'jitter': '0.838', 'missed': '0'}
-                            )
-                },
-            "plain" :
-                {
-                    "tcp" : ("[  3]  0.0- 5.0 sec  3312 KBytes    660 KBytes/sec", {'kbs': 660.0}),
-                    "udp" : (
-                                "[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec  1.496 ms    0/  893 (0%)",
-                                {'kbs': 1.05, 'jitter': 1.496, 'missed': 0.0, 'total': 893.0}
-                            )
-                }
-        }
-
-    def testCsv(self):
-        csv = IperfOutCsv(udp = True)
-        val = self.values["csv"]
-        self.assertEqual(csv.parse_line(val["udp"][0]), val["udp"][1])
-        csv.udp = False
-        self.assertEqual(csv.parse_line(val["tcp"][0]), val["tcp"][1])
-        # check if both results are present in the final result
-        self.assertEqual(csv.result, [val["udp"][1], val["tcp"][1]])
-        self.assertEqual(csv.get_values(), ['1025.27', '5234.78'])
-
-    def testPlain(self):
-        plain = IperfOutPlain(udp = True)
-        val = self.values["plain"]
-        self.assertEqual(plain.parse_line(val["udp"][0]), val["udp"][1])
-        plain.udp = False
-        self.assertEqual(plain.parse_line(val["tcp"][0]), val["tcp"][1])
-        self.assertEqual(plain.result, [val["udp"][1], val["tcp"][1]])
+# TODO rewrite testIperfOutput
         
 
 class TestSize(unittest.TestCase):

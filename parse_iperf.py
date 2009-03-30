@@ -1,22 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-# =================================================================
-# = This python program allows to automatize the creation         =
-# = and analysis of test using iperf to test network performances =
-# =================================================================
-
 import re
-import sys
-import shelve
-import os
-import ConfigParser
-import copy
-import time
-import code
-import getopt
-
-VERBOSE = False
 
 class Size:
     """ Converting from one unit misure to the other """
@@ -34,139 +19,82 @@ class Size:
         else:
             offset = self.units.index(self.unit) - self.units.index(unit)
             return round(self.value * (pow(1024, offset)), 2)
-
-    def findUnit(self):
-        """Finds the best unit misure for a number"""
-        val = self.value
-        un = self.unit
-        while val > 1024 and self.units.index(un) < len(self.units):
-            val /= float(1024)
-            # going to the next
-            un = self.units[self.units.index(un) + 1]
-        return Size(val, un)
         
     def __str__(self):
         return " ".join([str(self.value), self.unit])
-
-
-class StatData:
-    """Statistical computations on data"""
-    def __init__(self, data):
-        self.data = data
-        self.mean = stats.mean(data)
-        self.stdev = stats.stdev(data)
-    
-    def __str__(self):
-        return "\n".join(["values:\t" + str(self.data), "mean:\t" + str(self.mean), "stdev:\t" + str(self.stdev)])
-        
-    # TODO implementing the efficiency of the channel
-    
     
 # ==========================================
 # = Handling iperf output in various forms =
 # ==========================================
 class IperfOutput(object):
-    """class to handle iperf outputs in different formats
-        possible input formats are this (PLAIN):
-        [  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec  1.496 ms    0/  893 (0%)
-        or the csv mode (CSV):
-        20090314193213,172.16.201.1,63132,172.16.201.131,5001,3,0.0-10.0,1312710,1048592
-        20090314193213,172.16.201.131,5001,172.16.201.1,63132,3,0.0-10.0,1312710,1049881,0.838,0,893,0.000,0
-        
-        The bigger problem is about measures, csv doesn't take the -f option and plain doesn't output in bytes/sec
-
-        The philosophy behind this output analyzer is:
-        "keep everything return only what's needed"
-    """
+    """Handling parsing of iperf, getting one line at a time or a file"""
     
-    def __init__(self, format, udp = True, value = 'kbs'):
+    def __init__(self, format):
         # inverting the dictionary
-        self.udp = udp
-        self.fromIdx = dict(zip(self.positions.values(), self.positions.keys()))
-        self.value = value
         self.format = format
-        self.result = []
-
-    # TODO creating an iterator
-    def parse_line(self, line):
-        """parse a single line
-        FIXME Creating a dictionary for every line isn't very efficient"""
-        result = {}
-        # TCP case
-        if not(self.udp):
-            kbs = self.parse_tcp(line)
-            result[self.value] = kbs
-        # UDP case
-        else:
-            values = self.parse_udp(line)
-        # doing nothing if useless line
-            if not(values):
-                return
-            for el in self.fromIdx.iterkeys():
-                result[self.fromIdx[el]] = values[el]
-        self.result.append(result)
-        return result # FIXME create an iterator with next, __iter__
+        self.fields = ["avg", "missed", "total", "jitter", "transfer"]
+        self.result = dict(zip(self.fields, [None] * len(self.fields)))
+        self.result['values'] = []
     
+    def __str__(self):
+        return str(self.result)
+
     def parse_file(self, filename):
         "Takes the filename"
         for line in open(filename):
             self.parse_line(line)
     
     def get_values(self):
-        return [el[self.value] for el in self.result]
-
+        return self.result['values']
 
 class IperfOutCsv(IperfOutput):
     """Handling iperf output in csv mode"""
-    def __init__(self, udp = True):
+    def __init__(self):
         self.positions = {
-            "kbs" : 8, "jitter" : 9, "missed" : 10, "total" : 11
+            "transfer" : 7, "avg" : 8, "jitter" : 9, "missed" : 10, "total" : 11
         }
-        IperfOutput.__init__(self, udp = udp, format = 'CSV')
+        IperfOutput.__init__(self, format = 'CSV')
         self.splitted = lambda line: line.strip().split(',')
     
     def _translate(self, val):
         v = int(val)
         return str(Size(v, 'B').translate('K'))
 
-    def parse_tcp(self, line):
-        """Returning just the bandwidth value in KB/s"""
-        return self._translate(self.splitted(line)[-1])
-
-    def parse_udp(self, line):
-        fields = self.splitted(line)
-        # FIXME a bit ugly way to translate last value to kbs
-        kbsidx = self.positions[self.value]
-        fields[kbsidx] = self._translate(fields[kbsidx])
-        return fields
+    def parse_line(self, line):
+        l = self.splitted(line)
+        if len(l) == 9:
+            self.result['values'].append(self._translate(l[-1]))
+        elif len(l) == 14:
+            for p in self.positions.keys():
+                self.result[p] = l[self.positions[p]]
+            self.result["transfer"] = self._translate(self.result["transfer"])
+        # otherwise automatically do nothing, empty line probably
         
 class IperfOutPlain(IperfOutput):
     """Handling iperf not in csv mode"""
-    def __init__(self, udp = True):
+    def __init__(self):
         self.positions = {
-            "kbs" : 4, "jitter" : 5, "missed" : 6, "total" : 7
+            "transfer" : 3, "avg" : 4, "jitter" : 5, "missed" : 6, "total" : 7
         }
         self.num = re.compile(r"(\d+)(?:\.(\d+))?")
-        IperfOutput.__init__(self, udp = udp, format = 'PLAIN')
-
-    def parse_tcp(self, line):
-        """if using tcp mode changes everything, line becomes for example 
-        [  3]  0.0- 5.0 sec  3312 KBytes    660 KBytes/sec
-        Only gives back the bandwidth"""
-        return self.__fun(self.num.findall(line)[-1])
+        IperfOutput.__init__(self, format = 'PLAIN')
+ 
+    def parse_line(self, line):
+        if re.search(r"\bKBytes\b", line):
+            nums = self.num.findall(line)
+            values = map(self._fun, nums)
+            if re.search(r"\bms\b", line):
+                for p in self.positions.keys():
+                    self.result[p] = values[self.positions[p]]
+            else:
+                self.result['values'].append(values[-1])
     
-    def parse_udp(self, line):
-        if re.search(r"\bms\b", line):
-            num = re.compile(r"(\d+)(?:\.(\d+))?")
-            nums = num.findall(line)
-            values = map(self.__fun, nums)
-            return values
-        else:
-            return None
-    
-    def __fun(self, tup):
+    def _fun(self, tup):
         """Taking float numbers in a list of tuples"""
-        return float('.'.join([tup[0], tup[1]]))
+        if tup[1]:
+            return float('.'.join([tup[0], tup[1]]))
+        else:
+            return int(tup[0])
         
 # ================================
 # = Classes for handling options =
@@ -212,7 +140,6 @@ class BoolOpt(Opt):
             return ''
         else:
             return self.name
-    
     
     def valid(self, value):
         return value in (True, False)
