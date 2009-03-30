@@ -45,7 +45,7 @@ class Size:
             un = self.units[self.units.index(un) + 1]
         return Size(val, un)
         
-    def __repr__(self):
+    def __str__(self):
         return " ".join([str(self.value), self.unit])
 
 
@@ -56,8 +56,8 @@ class StatData:
         self.mean = stats.mean(data)
         self.stdev = stats.stdev(data)
     
-    def __repr__(self):
-        return "\n".join(["values:\t" + repr(self.data), "mean:\t" + repr(self.mean), "stdev:\t" + repr(self.stdev)])
+    def __str__(self):
+        return "\n".join(["values:\t" + str(self.data), "mean:\t" + str(self.mean), "stdev:\t" + str(self.stdev)])
         
     # TODO implementing the efficiency of the channel
     
@@ -179,15 +179,12 @@ class Opt:
         self.value = value
         self.setted = True
     
-    def __repr__(self):
+    def __str__(self):
         if not self.setted:
             return ''
         else:
             return (self.name + " " + str(self.value))
     
-    def __str__(self):
-        return self.__repr__()
-
     def __eq__(self, other):
         """checking equality of option types, also type must be equal"""
         return type(self) == type(other) and self.name == other.name and self.value == other.value
@@ -210,7 +207,7 @@ class BoolOpt(Opt):
         """By default the bool option is set (value True)"""
         Opt.__init__(self, name, value)
 
-    def __repr__(self):
+    def __str__(self):
         if not self.setted:
             return ''
         else:
