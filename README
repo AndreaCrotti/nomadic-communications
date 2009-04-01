@@ -1,3 +1,14 @@
+h1. DESCRIPTION
+
 This project is about testing network performances with different wireless devices and configurations.
 
 Results are then statistically analyzed and there will be 2 relations (in latex) explaining the results.
+
+This program is meant to meant to be used interactively, you can start it by simply
+
+h1. USAGE
+
+??python tester.py??
+(tested with python2.5, on 2.6 doesn't work because "with", which is used by gnuplot, has been defined as keyword)
+
+You can use the already defined.
