@@ -34,12 +34,29 @@ class TestCnf(unittest.TestCase):
     
     def testApConf(self):
         pass
+
+class TestTestBattery(unittest.TestCase):
+    def setUp(self):
+        self.test = TestBattery()
+        c1 = Configure(self.test.full)
+        c2 = Configure(self.test.full)
+        c2.conf['iperf']['speed'].set('2M')
+        c3 = Configure(self.test.full)
+        c3.conf['ap']['speed'].set('2M')
+        self.test.battery = [c1, c2, c3]
+    
+    def testGroup(self):
+        self.assertEqual([map(str, x) for x in self.test._group_auto()], 
+            [['test --> num_tests 1\niperf --> iperf -f K -c lts -i 3 -b 1G -t 20\nclient --> driver  brand  speed 1M model \nap --> comment  speed 1M ssid nossid ip 23.13.1.41 frag_threshold 256 rts_threshold 256 channel 7', 
+            'test --> num_tests 1\niperf --> iperf -f K -c lts -i 3 -b 2M -t 20\nclient --> driver  brand  speed 1M model \nap --> comment  speed 1M ssid nossid ip 23.13.1.41 frag_threshold 256 rts_threshold 256 channel 7'], 
+            ['test --> num_tests 1\niperf --> iperf -f K -c lts -i 3 -b 1G -t 20\nclient --> driver  brand  speed 1M model \nap --> comment  speed 2M ssid nossid ip 23.13.1.41 frag_threshold 256 rts_threshold 256 channel 7']])
         
 
 class TestConfigure(unittest.TestCase):
     def setUp(self):
-        self.c = Configure()
-        self.c1 = Configure()
+        self.full = TestBattery().full
+        self.c = Configure(self.full)
+        self.c1 = Configure(self.full)
         self.c1['iperf']['host'].set("server")
         self.c['ap']['speed'].set('11M')
     
