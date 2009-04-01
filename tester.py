@@ -1,11 +1,10 @@
 #!/usr/bin/env python
-import ConfigParser
 import os
 import re
 import sys
 import shelve
 import time
-import getopt
+import ConfigParser
 from copy import deepcopy
 from parse_iperf import *
 
@@ -15,10 +14,16 @@ try:
 except ImportError, i:
     print "you will be unable to plot in real time"
     GNUPLOT = False
+    
+if os.path.exists('dialog.py'):
+    import dialog
+    DIALOG = True
+else:
+    DIALOG = False
 
 def interactive():
-    c = Configure()
-    c.make_conf()
+    t = TestBattery()
+    t.interactive()
 
 class MenuMaker:
     """Generates a nice menu"""
@@ -42,7 +47,10 @@ def menu_set(menu):
         print str(menu)
         val = raw_input("make a choice (default %s):\n\n" % str(menu.default))
         if val == '':
-            return menu.default
+            if menu.key == "val":
+                return self.default
+            else:
+                return 0
         else:
             try:
                 return menu[int(val)]
@@ -140,29 +148,127 @@ class TestConf(Cnf):
         self.options = dict(num_tests = "num_tests")
         Cnf.__init__(self, "test")
 
+class ConfigReader:
+    def __init__(self, conf_file):
+        self.conf_file = conf_file
+        self.reader = ConfigParser.ConfigParser()
+        # handle exception
+        self.reader.readfp(open(self.conf_file))
+                
+    def get_conf(self, section):
+        conf = {}
+        for k in self.reader.options(section):
+            val = self.reader.get(section, k)
+            if val.find(',') >= 0:  # it's a list
+                conf[k] = val.replace(' ','').split(',')
+            else:
+                conf[k] = val
+        return conf
+
+class ConfigWriter:
+    def __init__(self, conf_file):
+        self.conf_file = conf_file
+        self.writer = ConfigParser.ConfigParser()
+        
+    def write_conf(self, conf):
+        for sec, opts in conf.items():
+            self.writer.add_section(sec)
+            for key, val in opts.conf.items():
+                self.writer.set(sec, key, val)
+        self.writer.write(self.conf_file)
+        
+
+
+class TestBattery:
+    def __init__(self):
+        # setting also the order in this way,
+        self.conf_file = "config.ini"
+        self.conf_reader = ConfigReader("config.ini")
+        self.auto = ["iperf"]
+        # maybe use "sets" to avoid duplicates
+        self.conf_dir = "configs"
+        self.battery = []
+        self.full = {
+            "iperf" : IperfConf(self.conf_reader.get_conf("iperf")),
+            "ap"    : ApConf(self.conf_reader.get_conf("ap")),
+            "client": ClientConf(self.conf_reader.get_conf("client")),
+            "test"  : TestConf(self.conf_reader.get_conf("test"))
+        }
+        # taking a minimal conf, which is actually the real default in this moment
+        self.last_conf = deepcopy(self.full)
+
+    def _group_auto(self):
+        def eql(t1, t2):
+            changed = (t1 - t2).keys()
+            for c in changed:
+                if c not in self.auto:
+                    return False
+            return True
+            
+        groups = []
+        for test in self.battery:
+            added = False
+            for i in range(len(groups)):
+                # at position 0 we have the testimonial
+                if eql(test, groups[i][0]):
+                    groups[i].append(test)
+                    added = True
+                    break
+            if not(added):
+                groups.append([test])
+        return groups
+    
+    def conf(self):
+        # starting to create a new battery of test
+        cnf = Configure(self.last_conf)
+        cnf.make_conf()
+        self.battery.append(cnf)
+        self.last_conf = cnf.conf
+        return False
+    
+    def run(self):
+        """Start the tests, after having sorted them"""
+        print "running the test"
+        groups = self._group_auto()
+        for sub in groups:
+            print "configuration -> \n %s\n" % sub[0]
+            raw_input("check configuration of parameters before starting the automatic tests, press enter when done \n")
+            for test_conf in sub:
+                Tester(test_conf).run_test()
+        # when the tests are done we also want to save the configurations
+        self.store_configs()
+        return True
+    
+    def show_test(self):
+        for test in self.battery:
+            test.show()
+        return False
+    
+    def store_configs(self):
+        for cnf in self.battery:
+            write_conf(to_min(cnf), open(os.path.join(self.conf_dir, cnf.codename)), 'w')
+        return True
+    
+    def interactive(self):
+        """Configure the test battery"""
+        questions = ["create a new test", "show the tests", "run the tests", "store configurations and exit"]
+        while True:
+            n = menu_set(MenuMaker(questions, key = "idx"))
+            if [self.conf, self.show_test, self.run, self.store_configs][n]():
+                break
+
 
 class Configure:
-    conf_file = 'config.ini'
-    subdir = 'test_configs'
-    def __init__(self):
-        self.num = 1
-        self.sub_num = 1
-        self.auto = ["iperf"]
-        self.reader = ConfigParser.ConfigParser()
-        self.reader.readfp(open(self.conf_file))
-        # setting also the order in this way,
-        self.conf = {
-            "iperf" : IperfConf(self.get_conf("iperf")),
-            "ap"    : ApConf(self.get_conf("ap")),
-            "client": ClientConf(self.get_conf("client")),
-            "test"  : TestConf(self.get_conf("test"))
-        }
-        self.sections = ParamOpt("sections", "iperf", self.conf.keys())
-        # not linking, really copying the data structure
-        self.lastconf = deepcopy(self.conf)
+    def __init__(self, full_conf):
+        """The input of Configure is a total configuration and a minimal (default)
+        configuration"""
+        self.full_conf = full_conf
+        # at the end of the configuration this will be a minimal configuration
+        self.conf = deepcopy(self.full_conf)
+        self.codename = ""
 
     def __str__(self):
-        return '\n'.join([ (str(key) + " --> " + str(val)) for key, val in self.lastconf.items()])
+        return '\n'.join([ (str(key) + " --> " + str(val)) for key, val in self.conf.items()])
             
     def __getitem__(self, idx):
         return self.conf[idx]
@@ -177,50 +283,38 @@ class Configure:
             if not(self.conf[c] == other.conf[c]):
                 diff[c] = self.conf[c] - other.conf[c]
         return diff
-    
-    def make_config_file(self):
-        """Creates a new configuration and store it"""
-        while True:
-            print "insert the index of the next configuration"
-            self.make_conf()
+
+    def show(self):
+        print "\n"
+        head = "*** test %s ***" % self.codename
+        tail = "--- end test %s ---\n\n" % self.codename
+        print head.center(40)
+        write_conf(to_min(self.conf), sys.stdout)
+        print tail.center(40)
+        return False
+
+    def configure(self):
+        sec = menu_set(MenuMaker(self.full_conf.keys()))
+        # only take parameters, where there is a list of possible values
+        pars = self.full_conf[sec].params()
+        opt = menu_set(MenuMaker(pars))
+        val = menu_set(MenuMaker(self.full_conf[sec][opt].val_list))
+        self.conf[sec][opt].set(val)
+        return False
+
+    def quit(self):
+        print "quitting"
+        return True
 
     def make_conf(self):
-        def conf():
-            sec = menu_set(MenuMaker(self.conf.keys()))
-            # only take parameters, where there is a list of possible values
-            pars = tmpconf[sec].params()
-            opt = menu_set(MenuMaker(pars))
-            val = menu_set(MenuMaker(tmpconf[sec][opt].val_list))
-            tmpconf[sec][opt].set(val)
-            return False
-        
-        def run():
-            Tester(tmpconf).run_test()
-            return False
-
-        def quit():
-            print "quitting"
-            return True
-        
-        print "starting interactive configuration"
-        tmpconf = self.lastconf
-        
+        self.codename = raw_input("insert name of this test:\n")
+        questions = ["Configure a parameter", "Show current configuration", "Quit"]
         while True:
             print "your actual configuration is:\n%s\nChoose what you want to do:\n" % str(self)
-            questions = ["Configure another parameter", "Run the test", "Quit"]
             n = menu_set(MenuMaker(questions, key = "idx"))
-            if [conf, run, quit][n]():
+            if [self.configure, self.show, self.quit][n]():
                 break
-                
-    def get_conf(self, section):
-        conf = {}
-        for k in self.reader.options(section):
-            val = self.reader.get(section, k)
-            if val.find(',') >= 0:  # it's a list
-                conf[k] = val.replace(' ','').split(',')
-            else:
-                conf[k] = val
-        return conf
+
 
 class Plotter:
     """
@@ -307,6 +401,23 @@ class Tester:
             self.plotter.add_data(self.test_conf["result"]["values"], "testing")
             self.plotter.plot()
 
+
+def to_min(full_conf):
+    conf = {}
+    for key,val in full_conf.items():
+        conf[key] = {}
+        for opt, value in val.conf.items():
+            conf[key][opt] = value.value
+    return conf
+        
+def write_conf(conf, conf_file):
+    writer = ConfigParser.ConfigParser()
+    for key, val in conf.items():
+        writer.add_section(key)
+        for k, v in val.items():
+            writer.set(key, k, v)
+    writer.write(conf_file)
+    
 
 if __name__ == '__main__':
     # TODO adding a simulation and verbosity flag
