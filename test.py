@@ -10,13 +10,18 @@ Copyright (c) 2009 Andrea Crotti Corp. All rights reserved.
 import unittest
 import re
 import random
-import glob
 import time
 import ConfigParser
 from parse_iperf import *
 from tester import *
 
-TESTFILES = glob.glob("dataLab/logs/*.txt")
+class TestConfiguration(unittest.TestCase):
+    def setUp(self):
+        c = Configuration("mycodename")
+        c["Uno"] = {'a' : 10}
+        c["due"] = {'b' : 20}
+        print c
+
 
 class TestCnf(unittest.TestCase):
     def setUp(self):
@@ -27,43 +32,20 @@ class TestCnf(unittest.TestCase):
             "format" : "K",
             "interval": [1,2,3]
         }
+        self.iperf_conf2 = {
+            "host" : "lprova",
+            "format" : "M",
+            "interval": 10
+        }
 
     def testIperf(self):
         i = IperfConf(self.iperf_conf)
+        i2 = IperfConf(self.iperf_conf2)
         self.assertEqual(str(i), 'iperf -c lts -i 1 -b 1M -t 1 -f K')
+        self.assertEqual(str(i + i2), "{'format': -f M, 'interval': -i 10, 'host': -c lprova, 'time': -t 1, 'speed': -b 1M}")
     
     def testApConf(self):
         pass
-
-class TestTestBattery(unittest.TestCase):
-    def setUp(self):
-        self.test = TestBattery()
-        c1 = Configure(self.test.full)
-        c2 = Configure(self.test.full)
-        c2.conf['iperf']['speed'].set('2M')
-        c3 = Configure(self.test.full)
-        c3.conf['ap']['speed'].set('2M')
-        self.test.battery = [c1, c2, c3]
-    
-    def testGroup(self):
-        self.assertEqual([map(str, x) for x in self.test._group_auto()], 
-            [['test --> num_tests 1\niperf --> iperf -f K -c lts -i 3 -b 1G -t 20\nclient --> driver  brand  speed 1M model \nap --> comment  speed 1M ssid nossid ip 23.13.1.41 frag_threshold 256 rts_threshold 256 channel 7', 
-            'test --> num_tests 1\niperf --> iperf -f K -c lts -i 3 -b 2M -t 20\nclient --> driver  brand  speed 1M model \nap --> comment  speed 1M ssid nossid ip 23.13.1.41 frag_threshold 256 rts_threshold 256 channel 7'], 
-            ['test --> num_tests 1\niperf --> iperf -f K -c lts -i 3 -b 1G -t 20\nclient --> driver  brand  speed 1M model \nap --> comment  speed 2M ssid nossid ip 23.13.1.41 frag_threshold 256 rts_threshold 256 channel 7']])
-        
-
-class TestConfigure(unittest.TestCase):
-    def setUp(self):
-        self.full = TestBattery().full
-        self.c = Configure(self.full)
-        self.c1 = Configure(self.full)
-        self.c1['iperf']['host'].set("server")
-        self.c['ap']['speed'].set('11M')
-    
-    def testNeq(self):
-        self.assertEqual(str(self.c - self.c1), "{'iperf': {'host': -c lts}, 'ap': {'speed': speed 11M}}")
-        self.assertEqual(str(self.c1 - self.c), "{'iperf': {'host': -c server}, 'ap': {'speed': speed 1M}}")
-        self.assertTrue(self.c != self.c1)
 
 # TODO rewrite testIperfOutput
 class TestSize(unittest.TestCase):
