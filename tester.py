@@ -24,10 +24,6 @@ if os.path.exists('dialog.py'):
 else:
     DIALOG = False
 
-def interactive():
-    t = TestBattery()
-    t.interactive()
-
 class MenuMaker:
     """Generates a nice menu"""
     def __init__(self, choices, key = "val"):
@@ -45,7 +41,7 @@ class MenuMaker:
         elif self.key == 'idx':
             return idx
         
-# Use dialog if available
+# TODO Use dialog if available
 def menu_set(menu):
     while True:
         print str(menu)
@@ -119,7 +115,6 @@ class Cnf:
         pass
 
     def to_conf(self):
-        # CHANGED, using raw_conf here we allow incomplete configurations
         for key in self.raw_conf.keys():
             v = self.raw_conf[key]
             if type(v) == list:
@@ -140,8 +135,8 @@ class IperfConf(Cnf):
     def __init__(self, conf):
         self.raw_conf = conf
         self.options = {
-            "speed" : "-b",
             "host"  : "-c",
+            "speed" : "-b",
             "time"  : "-t",
             "format" :"-f",
             "interval" : "-i"
@@ -173,6 +168,14 @@ class TestConf(Cnf):
         self.options = dict(num_tests = "num_tests")
         Cnf.__init__(self, "test")
 
+# CHANGED I had to pull opt_conf outside to let shelve pickle work
+opt_conf = {
+    "iperf" : lambda x: IperfConf(x),
+    "ap"    : lambda x: ApConf(x),
+    "client": lambda x: ClientConf(x),
+    "test"  : lambda x: TestConf(x)
+}
+
 class Configuration:
     """Class of a test configuration, only contains a one-one dict and a codename
     The value of the dict can be whatever, even a more complex thing.
@@ -181,16 +184,11 @@ class Configuration:
     all the possible alternatives, to_min will output a minimal dictionary representing
     the default"""
 
-    def __init__(self, codename, conf_file = ""):
+    def __init__(self, codename = "", conf_file = ""):
         self.codename = codename
         self.conf = {}
         self.reader = ConfigParser.ConfigParser()
-        self.opt_conf = {
-            "iperf" : lambda x: IperfConf(x),
-            "ap"    : lambda x: ApConf(x),
-            "client": lambda x: ClientConf(x),
-            "test"  : lambda x: TestConf(x)
-        }
+
         # maybe also set during __init__
         if conf_file:
             self.from_ini(open(conf_file))
@@ -218,17 +216,19 @@ class Configuration:
         for key in diff.conf.keys():
             if other.conf.has_key(key):
                 diff.conf[key] -= other.conf[key]
+        diff.codename = other.codename
         return diff
         
     def __add__(self, other):
         """Merge two configurations, the second one has the last word
         Note that of course this IS NOT symmetric"""
         merged = deepcopy(self)
-        for key in self.opt_conf.keys():
+        for key in opt_conf.keys():
             if merged.conf.has_key(key) and other.conf.has_key(key):
                 merged.conf[key] += other.conf[key]
             elif other.conf.has_key(key):
                 merged.conf[key] = other.conf[key]
+        merged.codename = other.codename
         return merged
 
     def to_min(self):
@@ -258,7 +258,7 @@ class Configuration:
                 else:
                     tmpconf[opt] = val
             try:
-                self.conf[sec] = self.opt_conf[sec](tmpconf)
+                self.conf[sec] = opt_conf[sec](tmpconf)
             except KeyError:
                 print "section %s not existing, skipping it" % sec
         
@@ -290,9 +290,8 @@ class TestBattery:
         intervent is as minumum"""
         # FIXME using new - and + overloaded operators
         def eql(t1, t2):
-            changed = set((t1 - t2).keys())
+            changed = set((t1 - t2).conf.keys())
             return changed.issubset(self.auto)
-            
         groups = []
         for test in self.battery:
             added = False
@@ -311,11 +310,10 @@ class TestBattery:
         the default configuration"""
         cnf = Configuration(conf_file, conf_file)
         merged = self.default_conf + cnf
-        merged.show()
         if merged in self.battery:
-            print "you already have the same configuration, not adding"
+            print "you already the configuration in %s, not adding" % conf_file
         else:
-            print "adding configuration"
+            print "adding configuration in %s" % conf_file
             self.battery.append(merged)
 
     def load_configs(self):
@@ -331,21 +329,14 @@ class TestBattery:
             raw_input("check configuration of parameters before starting the automatic tests, press enter when done \n")
             for test_conf in sub:
                 Tester(test_conf).run_test()
-        # when the tests are done we also want to save the configurations
-        self.store_configs()
-        return True
     
     def show_tests(self):
         for test in self.battery:
             test.show()
     
-    def interactive(self):
-        """Configure the test battery"""
-        questions = ["create a new test", "show the tests", "run the tests", "store configurations and exit"]
-        while True:
-            n = menu_set(MenuMaker(questions, key = "idx"))
-            if [self.conf, self.show_tests, self.run, self.store_configs][n]():
-                break
+    def batch(self):
+        self.load_configs()
+        self.run()
 
 
 class Plotter:
@@ -379,7 +370,7 @@ class Plotter:
     
     def update(self, data):
         """Adds data to the last data set"""
-        # FIXME doesn't have to redraw everything every time 
+        # FIXME doesn't have to redraw everything every time
         self.last += data
         new = Gnuplot.Data(self.last, with = "linespoint", title = self.items[-1].get_option("title"))
         self.items[-1] = new
@@ -395,11 +386,7 @@ class Tester:
         self.analyzer = IperfOutPlain()
         self.get_time = lambda: time.strftime("%H:%M", time.localtime())
         self.output = shelve.open("test_result")
-        # self.num_tests = int(self.conf['test']['num_tests'].value)
-        if self.output.has_key(str(self.conf)):
-            print "careful, you've already done a test with this configuration\n: %s" %\
-                str(self.conf)
-        # The None values are filled before written to shelve dictionary
+        # The None values are surely rewritten before written to shelve dictionary
         self.test_conf = {
             "platform"  : os.uname(),
             "conf"      : self.conf,
@@ -408,18 +395,16 @@ class Tester:
             "result"    : None
         }
     
-    def __str__(self):
-        return "\n\n".join([ str(key) + ":\n" + str(val) for key, val in self.test_conf.items() ])
-
     def run_test(self):
         """Runs the test num_tests time and save the results"""
         cmd = str(self.conf['iperf'])
         self.test_conf["start"] = self.get_time()
         print "executing %s" % cmd
+        # TODO insert a test to verify if the host is responding
         _, w, e = os.popen3(cmd)
         for line in w.readlines():
             self.analyzer.parse_line(line)
-                
+
         self.test_conf["end"] = self.get_time()
         self.test_conf["result"] = self.analyzer.result
         # =========================================================================
@@ -435,4 +420,4 @@ class Tester:
 
 if __name__ == '__main__':
     # TODO adding a simulation and verbosity flag
-    interactive()
+    TestBattery().batch()
