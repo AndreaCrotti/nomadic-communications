@@ -85,22 +85,29 @@ class Cnf:
         return not(self == other)
 
     def __add__(self, other):
-        tmp = self.to_min()
-        tmp.update(other.to_min())
-        return tmp
+        merged = deepcopy(self)
+        merged.conf.update(other.conf)
+        return merged
 
     def __sub__(self, other):
-        diff = {}
-        for c in self.conf.keys():
-            if other.conf.has_key(c) and (self.conf[c] != other.conf[c]):
-                diff[c] = self.conf[c]
-        return diff
+        """ Getting the diff of two configuration"""
+        subt = deepcopy(self)
+        for key, val in subt.conf.items():
+            if other.conf.has_key(key):
+                if other.conf[key] == subt.conf[key]:
+                    subt.conf.pop(key)
+                else:
+                    subt.conf[key] = other.conf[key]
+        return subt
 
     def __getitem__(self, idx):
         try:
             return self.conf[idx].value
         except KeyError:
             print "key %s does not exist" % str(idx)
+        
+    def issubset(self, other):
+        return set(self.conf.keys()).issubset(other.conf.keys())
     
     def to_min(self):
         """Gets the minimal Cnf, without choices and taking off null values"""
@@ -177,7 +184,6 @@ class Configuration:
     def __init__(self, codename, conf_file = ""):
         self.codename = codename
         self.conf = {}
-        self.writer = ConfigParser.ConfigParser()
         self.reader = ConfigParser.ConfigParser()
         self.opt_conf = {
             "iperf" : lambda x: IperfConf(x),
@@ -198,16 +204,6 @@ class Configuration:
     def __eq__(self, other):
         return self.conf == other.conf
 
-    def __sub__(self, other):
-        """Differences from two configurations, returns a new small configuration"""
-        diff = {}
-        for c in self.conf.keys():
-            if not(other.conf.has_key(c)):
-                diff[c] = self.conf[c]
-            elif not(self.conf[c] == other.conf[c]):
-                diff[c] = self.conf[c] - other.conf[c]
-        return diff
-    
     def __getitem__(self, idx):
         try:
             return self.conf[idx]
@@ -215,9 +211,25 @@ class Configuration:
             return None
 
     def __setitem__(self, idx, val):
-        self.conf[idx] = val
+        self.conf[idx] = val     
+
+    def __sub__(self, other):
+        diff = deepcopy(self)
+        for key in diff.conf.keys():
+            if other.conf.has_key(key):
+                diff.conf[key] -= other.conf[key]
+        return diff
         
-    # TODO implement correctly the merging __add__
+    def __add__(self, other):
+        """Merge two configurations, the second one has the last word
+        Note that of course this IS NOT symmetric"""
+        merged = deepcopy(self)
+        for key in self.opt_conf.keys():
+            if merged.conf.has_key(key) and other.conf.has_key(key):
+                merged.conf[key] += other.conf[key]
+            elif other.conf.has_key(key):
+                merged.conf[key] = other.conf[key]
+        return merged
 
     def to_min(self):
         # creating a new dictionary automatically minimizing values
@@ -226,12 +238,13 @@ class Configuration:
     def _write_conf(self, conf_file):
         """Write the configuration in ini format
         after having minimized it"""
+        writer = ConfigParser.ConfigParser()
         conf = self.to_min()
         for sec, opt in conf.items():
-            self.writer.add_section(sec)
+            writer.add_section(sec)
             for key, val in opt.items():
-                self.writer.set(sec, key, val)
-        self.writer.write(conf_file)
+                writer.set(sec, key, val.value)
+        writer.write(conf_file)
                     
     def from_ini(self, conf_file):
         """Takes a configuration from ini"""
@@ -264,7 +277,7 @@ class TestBattery:
     def __init__(self):
         # setting also the order in this way,
         self.conf_file = "config.ini"
-        self.default_conf = Configuration(self.conf_file)
+        self.default_conf = Configuration("default", self.conf_file)
         self.auto = set(["iperf"])
         # maybe use "sets" to avoid duplicates
         self.conf_dir = "configs"
@@ -273,6 +286,9 @@ class TestBattery:
         self.battery = []
 
     def _group_auto(self):
+        """Groups configuration in a way such that human
+        intervent is as minumum"""
+        # FIXME using new - and + overloaded operators
         def eql(t1, t2):
             changed = set((t1 - t2).keys())
             return changed.issubset(self.auto)
@@ -293,17 +309,18 @@ class TestBattery:
     def load_conf(self, conf_file):
         """Loads a configuration from conf_file merging it with
         the default configuration"""
-        cnf = Configuration(conf_file)
-        merged = self.default + cnf
+        cnf = Configuration(conf_file, conf_file)
+        merged = self.default_conf + cnf
         merged.show()
-    
-    def conf(self):
-        # starting to create a new battery of test
-        cnf = Configure(self.last_conf)
-        cnf.make_conf()
-        self.battery.append(cnf)
-        self.last_conf = cnf.conf
-        return False
+        if merged in self.battery:
+            print "you already have the same configuration, not adding"
+        else:
+            print "adding configuration"
+            self.battery.append(merged)
+
+    def load_configs(self):
+        for conf in self.test_configs:
+            self.load_conf(conf)
     
     def run(self):
         """Start the tests, after having sorted them"""
@@ -320,16 +337,7 @@ class TestBattery:
     
     def show_tests(self):
         for test in self.battery:
-            (self.full - test).show()
-        return False
-    
-    def load_configs(self):
-        pass
-
-    def store_configs(self):
-        for cnf in self.battery:
-            write_conf(to_min(cnf), open(os.path.join(self.conf_dir, cnf.codename)), 'w')
-        return True
+            test.show()
     
     def interactive(self):
         """Configure the test battery"""
