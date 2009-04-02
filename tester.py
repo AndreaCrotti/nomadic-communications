@@ -1,10 +1,13 @@
 #!/usr/bin/env python
+# encoding: utf-8
+
 import os
 import re
 import sys
 import shelve
 import time
 import ConfigParser
+from glob import glob
 from copy import deepcopy
 from parse_iperf import *
 
@@ -42,6 +45,7 @@ class MenuMaker:
         elif self.key == 'idx':
             return idx
         
+# Use dialog if available
 def menu_set(menu):
     while True:
         print str(menu)
@@ -59,10 +63,6 @@ def menu_set(menu):
             except ValueError:
                 print "you must give integer input"
                 continue
-                
-def search_test(shelve_file):
-    pass
-
 
 class Cnf:
     def __init__(self, name):
@@ -84,6 +84,11 @@ class Cnf:
     def __neq__(self, other):
         return not(self == other)
 
+    def __add__(self, other):
+        tmp = self.to_min()
+        tmp.update(other.to_min())
+        return tmp
+
     def __sub__(self, other):
         diff = {}
         for c in self.conf.keys():
@@ -91,12 +96,24 @@ class Cnf:
                 diff[c] = self.conf[c]
         return diff
 
+    def __getitem__(self, idx):
+        try:
+            return self.conf[idx].value
+        except KeyError:
+            print "key %s does not exist" % str(idx)
+    
+    def to_min(self):
+        """Gets the minimal Cnf, without choices and taking off null values"""
+        not_nulls = filter(lambda x: self.conf[x].value != '', self.conf.keys())
+        return dict(zip(not_nulls, [self.conf[key] for key in not_nulls]))
+
     def to_latex(self):
         """Returns a string representing the configuration in latex"""
         pass
 
     def to_conf(self):
-        for key in self.options.keys():
+        # CHANGED, using raw_conf here we allow incomplete configurations
+        for key in self.raw_conf.keys():
             v = self.raw_conf[key]
             if type(v) == list:
                 # =====================================================
@@ -130,7 +147,8 @@ class IperfConf(Cnf):
 class ApConf(Cnf):
     def __init__(self, conf):
         self.raw_conf = conf
-        par = ["speed", "rts_threshold", "frag_threshold", "ip", "ssid", "channel", "comment"]
+        par = ["speed", "rts_threshold", "frag_threshold", "ip", "ssid",
+                "channel", "comment", "firmware", "model"]
         # FIXME not really beatiful
         self.options = dict(zip(par, par))
         Cnf.__init__(self, "ap")
@@ -148,62 +166,116 @@ class TestConf(Cnf):
         self.options = dict(num_tests = "num_tests")
         Cnf.__init__(self, "test")
 
-class ConfigReader:
-    def __init__(self, conf_file):
-        self.conf_file = conf_file
-        self.reader = ConfigParser.ConfigParser()
-        # handle exception
-        self.reader.readfp(open(self.conf_file))
-                
-    def get_conf(self, section):
-        conf = {}
-        for k in self.reader.options(section):
-            val = self.reader.get(section, k)
-            if val.find(',') >= 0:  # it's a list
-                conf[k] = val.replace(' ','').split(',')
-            else:
-                conf[k] = val
-        return conf
+class Configuration:
+    """Class of a test configuration, only contains a one-one dict and a codename
+    The value of the dict can be whatever, even a more complex thing.
+    This is the basic type we're working on.
+    The configuration is always kept as complete, in the sense that it also keeps
+    all the possible alternatives, to_min will output a minimal dictionary representing
+    the default"""
 
-class ConfigWriter:
-    def __init__(self, conf_file):
-        self.conf_file = conf_file
+    def __init__(self, codename, conf_file = ""):
+        self.codename = codename
+        self.conf = {}
         self.writer = ConfigParser.ConfigParser()
+        self.reader = ConfigParser.ConfigParser()
+        self.opt_conf = {
+            "iperf" : lambda x: IperfConf(x),
+            "ap"    : lambda x: ApConf(x),
+            "client": lambda x: ClientConf(x),
+            "test"  : lambda x: TestConf(x)
+        }
+        # maybe also set during __init__
+        if conf_file:
+            self.from_ini(open(conf_file))
         
-    def write_conf(self, conf):
-        for sec, opts in conf.items():
+    def __str__(self):
+        return '\n'.join(["%s:\t %s" % (str(k), str(v)) for k, v in self.conf.items()])
+        
+    def __repr__(self):
+        return str(self)
+
+    def __eq__(self, other):
+        return self.conf == other.conf
+
+    def __sub__(self, other):
+        """Differences from two configurations, returns a new small configuration"""
+        diff = {}
+        for c in self.conf.keys():
+            if not(other.conf.has_key(c)):
+                diff[c] = self.conf[c]
+            elif not(self.conf[c] == other.conf[c]):
+                diff[c] = self.conf[c] - other.conf[c]
+        return diff
+    
+    def __getitem__(self, idx):
+        try:
+            return self.conf[idx]
+        except KeyError:
+            return None
+
+    def __setitem__(self, idx, val):
+        self.conf[idx] = val
+        
+    # TODO implement correctly the merging __add__
+
+    def to_min(self):
+        # creating a new dictionary automatically minimizing values
+        return dict(zip(self.conf.keys(), map(lambda x: x.to_min(), self.conf.values())))
+    
+    def _write_conf(self, conf_file):
+        """Write the configuration in ini format
+        after having minimized it"""
+        conf = self.to_min()
+        for sec, opt in conf.items():
             self.writer.add_section(sec)
-            for key, val in opts.conf.items():
+            for key, val in opt.items():
                 self.writer.set(sec, key, val)
-        self.writer.write(self.conf_file)
+        self.writer.write(conf_file)
+                    
+    def from_ini(self, conf_file):
+        """Takes a configuration from ini"""
+        self.reader.readfp(conf_file)
+        for sec in self.reader.sections():
+            tmpconf = {}
+            for opt in self.reader.options(sec):
+                val = self.reader.get(sec, opt)
+                if val.find(',') >= 0:
+                    tmpconf[opt] = val.replace(' ', '').split(',')
+                else:
+                    tmpconf[opt] = val
+            try:
+                self.conf[sec] = self.opt_conf[sec](tmpconf)
+            except KeyError:
+                print "section %s not existing, skipping it" % sec
         
+    def to_ini(self, ini_file):
+        self._write_conf(ini_file)
+        
+    def show(self):
+        head = "#*** test %s ***" % self.codename
+        tail = "#--- end test %s ---\n\n" % self.codename
+        print head.center(40)
+        self.to_ini(sys.stdout)
+        print tail.center(40)
 
 
 class TestBattery:
     def __init__(self):
         # setting also the order in this way,
         self.conf_file = "config.ini"
-        self.conf_reader = ConfigReader("config.ini")
-        self.auto = ["iperf"]
+        self.default_conf = Configuration(self.conf_file)
+        self.auto = set(["iperf"])
         # maybe use "sets" to avoid duplicates
         self.conf_dir = "configs"
+        # list of all possible tests stored
+        self.test_configs = glob(os.path.join(self.conf_dir, '*ini'))
         self.battery = []
-        self.full = {
-            "iperf" : IperfConf(self.conf_reader.get_conf("iperf")),
-            "ap"    : ApConf(self.conf_reader.get_conf("ap")),
-            "client": ClientConf(self.conf_reader.get_conf("client")),
-            "test"  : TestConf(self.conf_reader.get_conf("test"))
-        }
-        # taking a minimal conf, which is actually the real default in this moment
-        self.last_conf = deepcopy(self.full)
 
     def _group_auto(self):
         def eql(t1, t2):
-            changed = (t1 - t2).keys()
-            for c in changed:
-                if c not in self.auto:
-                    return False
-            return True
+            changed = set((t1 - t2).keys())
+            return changed.issubset(self.auto)
             
         groups = []
         for test in self.battery:
@@ -217,6 +289,13 @@ class TestBattery:
             if not(added):
                 groups.append([test])
         return groups
+
+    def load_conf(self, conf_file):
+        """Loads a configuration from conf_file merging it with
+        the default configuration"""
+        cnf = Configuration(conf_file)
+        merged = self.default + cnf
+        merged.show()
     
     def conf(self):
         # starting to create a new battery of test
@@ -239,11 +318,14 @@ class TestBattery:
         self.store_configs()
         return True
     
-    def show_test(self):
+    def show_tests(self):
         for test in self.battery:
-            test.show()
+            (self.full - test).show()
         return False
     
+    def load_configs(self):
+        pass
+
     def store_configs(self):
         for cnf in self.battery:
             write_conf(to_min(cnf), open(os.path.join(self.conf_dir, cnf.codename)), 'w')
@@ -254,65 +336,7 @@ class TestBattery:
         questions = ["create a new test", "show the tests", "run the tests", "store configurations and exit"]
         while True:
             n = menu_set(MenuMaker(questions, key = "idx"))
-            if [self.conf, self.show_test, self.run, self.store_configs][n]():
-                break
-
-
-class Configure:
-    def __init__(self, full_conf):
-        """The input of Configure is a total configuration and a minimal (default)
-        configuration"""
-        self.full_conf = full_conf
-        # at the end of the configuration this will be a minimal configuration
-        self.conf = deepcopy(self.full_conf)
-        self.codename = ""
-
-    def __str__(self):
-        return '\n'.join([ (str(key) + " --> " + str(val)) for key, val in self.conf.items()])
-            
-    def __getitem__(self, idx):
-        return self.conf[idx]
-
-    def __eq__(self, other):
-        return self.conf == other.conf
-
-    def __sub__(self, other):
-        """Differences from two configurations, returns a new small configuration"""
-        diff = {}
-        for c in self.conf.keys():
-            if not(self.conf[c] == other.conf[c]):
-                diff[c] = self.conf[c] - other.conf[c]
-        return diff
-
-    def show(self):
-        print "\n"
-        head = "*** test %s ***" % self.codename
-        tail = "--- end test %s ---\n\n" % self.codename
-        print head.center(40)
-        write_conf(to_min(self.conf), sys.stdout)
-        print tail.center(40)
-        return False
-
-    def configure(self):
-        sec = menu_set(MenuMaker(self.full_conf.keys()))
-        # only take parameters, where there is a list of possible values
-        pars = self.full_conf[sec].params()
-        opt = menu_set(MenuMaker(pars))
-        val = menu_set(MenuMaker(self.full_conf[sec][opt].val_list))
-        self.conf[sec][opt].set(val)
-        return False
-
-    def quit(self):
-        print "quitting"
-        return True
-
-    def make_conf(self):
-        self.codename = raw_input("insert name of this test:\n")
-        questions = ["Configure a parameter", "Show current configuration", "Quit"]
-        while True:
-            print "your actual configuration is:\n%s\nChoose what you want to do:\n" % str(self)
-            n = menu_set(MenuMaker(questions, key = "idx"))
-            if [self.configure, self.show, self.quit][n]():
+            if [self.conf, self.show_tests, self.run, self.store_configs][n]():
                 break
 
 
@@ -399,25 +423,7 @@ class Tester:
         if GNUPLOT:
             self.plotter = Plotter("testing", "kbs")
             self.plotter.add_data(self.test_conf["result"]["values"], "testing")
-            self.plotter.plot()
-
-
-def to_min(full_conf):
-    conf = {}
-    for key,val in full_conf.items():
-        conf[key] = {}
-        for opt, value in val.conf.items():
-            conf[key][opt] = value.value
-    return conf
-        
-def write_conf(conf, conf_file):
-    writer = ConfigParser.ConfigParser()
-    for key, val in conf.items():
-        writer.add_section(key)
-        for k, v in val.items():
-            writer.set(key, k, v)
-    writer.write(conf_file)
-    
+            self.plotter.plot()        
 
 if __name__ == '__main__':
     # TODO adding a simulation and verbosity flag
