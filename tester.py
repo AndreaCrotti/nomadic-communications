@@ -65,8 +65,9 @@ class Cnf:
         self.conf = {}
         self.to_conf()
     
+    # Check if it's the best representation possible
     def __str__(self):
-        return ' '.join([str(val) for val in self.conf.values()])
+        return ';\t'.join([str(val) for key, val in self.conf.items()])
     
     def __repr__(self):
         return str(self)
@@ -131,6 +132,8 @@ class Cnf:
 # ===============================================================
 # = Subclasses of CNF, they only contain which options to parse =
 # ===============================================================
+
+# TODO clean those multiple useless classes
 class IperfConf(Cnf):
     def __init__(self, conf):
         self.raw_conf = conf
@@ -144,7 +147,12 @@ class IperfConf(Cnf):
         Cnf.__init__(self, "iperf")
 
     def __str__(self):
-        return "iperf " + Cnf.__str__(self)
+        res = ""
+        # FIXED in this way I'm safe that I always have the right order
+        for o in self.options.keys():
+            if self.conf.has_key(o):
+                res += str(self.conf[o]) + " "
+        return "iperf " + res.rstrip() # take off last space, pretty ugly
 
 class ApConf(Cnf):
     def __init__(self, conf):
@@ -187,6 +195,7 @@ class Configuration:
     def __init__(self, codename = "", conf_file = ""):
         self.codename = codename
         self.conf = {}
+        # TODO use the default method passing when creating the dict
         self.reader = ConfigParser.ConfigParser()
 
         # maybe also set during __init__
