@@ -7,8 +7,16 @@ Results are then statistically analyzed and there will be 2 relations (in latex)
 
 h1. USAGE
 
-This program is meant to meant to be used interactively, you can start it by simply
-??python tester.py??
-(tested with python2.5, on 2.6 doesn't work because "with", which is used by gnuplot, has been defined as keyword)
+This program firt load the default configuration from __config.ini__ and then all the __*.ini__ files found in the __configs__ folder.
+The configuration are merged and loaded in a big list, which is analyzed and resorted in order to need the minimal human input as possible.
 
-The program essentially takes a global configuration (from config.ini) and merges it 
+The list is in fact divided in sublists which contain configurations which different only by parameter than can be set automatically by the program itself (in this moment just "iperf").
+
+After having loaded all the configurations it starts to execute them, waiting for the user confirmation when needed and store the results to a database file (using shelve).
+
+Data are also plotted after being generated, but the plot is just for instant visualization, and can be redraw much better in the phase of the analysis of the results.
+
+So in order to use this program you need to
+* Configure correcly __config.ini__ for your setup
+* run __python tester.py__
+* follow the instructions
