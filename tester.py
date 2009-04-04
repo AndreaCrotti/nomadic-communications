@@ -107,7 +107,10 @@ class Cnf:
             return self.conf[idx].value
         except KeyError:
             print "key %s does not exist" % str(idx)
-        
+    
+    def is_empty(self):
+        return self.conf == {}
+    
     def issubset(self, other):
         return set(self.conf.keys()).issubset(other.conf.keys())
     
@@ -228,6 +231,9 @@ class Configuration:
         for key in diff.conf.keys():
             if other.conf.has_key(key):
                 diff.conf[key] -= other.conf[key]
+                # CHANGED added this check to avoid empty keys
+                if diff.conf[key].is_empty():
+                    diff.conf.pop(key)
         diff.codename = other.codename
         return diff
         
@@ -317,6 +323,11 @@ class TestBattery:
                 groups.append([test])
         return groups
 
+    # TODO implement check of consistency
+    def check_consistency(self, conf):
+        """Checking if configuration loaded is consistent with default configuration"""
+        pass
+    
     def load_conf(self, conf_file):
         """Loads a configuration from conf_file merging it with
         the default configuration"""
@@ -335,14 +346,21 @@ class TestBattery:
     
     def run(self):
         """Start the tests, after having sorted them"""
-        print "running the test"
-        groups = self._group_auto()
-        for sub in groups:
-            # TODO only printing difference from previous group if possible
-            print "\n\nconfiguration -> \n %s\n" % sub[0]
+        CONF = "\n\nconfiguration -> \n %s\n"
+        def sub_run(tests):
             raw_input("check configuration of parameters before starting the automatic tests, press enter when done \n")
-            for test_conf in sub:
+            for test_conf in tests:
                 Tester(test_conf).run_test()
+            
+        groups = self._group_auto()
+        first = groups[0]
+        print CONF % first[0]
+        sub_run(first)
+        for i in range(1, len(groups)):
+            # in this way we only show the difference from the last group
+            # of tests
+            print CONF % (groups[i][0] - groups[i-1][0])
+            sub_run(groups[i])
     
     def show_tests(self):
         for test in self.battery:
@@ -414,12 +432,12 @@ class Tester:
         """Runs the test num_tests time and save the results"""
         cmd = str(self.conf['iperf'])
         self.test_conf["start"] = self.get_time()
-        print "executing %s" % cmd
-        print "also writing output to %s" % self.iperf_out_file
         # TODO insert a test to verify if the host is responding
         if SIMULATE:
             print "only simulating execution"
         else:
+            print "executing %s" % cmd
+            print "also writing output to %s" % self.iperf_out_file
             _, w, e = os.popen3(cmd)
             out_file = open(self.iperf_out_file, 'w')
             for line in w.readlines():

@@ -18,5 +18,10 @@ Data are also plotted after being generated, but the plot is just for instant vi
 
 So in order to use this program you need to
 * Configure correcly __config.ini__ for your setup
-* run __python tester.py__
+* run __./tester.py__ (you may need to run __chmod u+x tester.py__ before to make it executable)
 * follow the instructions
+
+Another possible way to use the program is to pass all the config files as arguments, running
+
+__./tester.py__ <conf1> <conf2> ...
+will load all the configuration files and start the test.

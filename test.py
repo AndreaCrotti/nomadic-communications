@@ -41,8 +41,9 @@ class TestCnf(unittest.TestCase):
     def testIperf(self):
         i = IperfConf(self.iperf_conf)
         i2 = IperfConf(self.iperf_conf2)
-        self.assertEqual(str(i), 'iperf -c lts -i 1 -b 1M -t 1 -f K')
-        self.assertEqual(str(i + i2), "{'format': -f M, 'interval': -i 10, 'host': -c lprova, 'time': -t 1, 'speed': -b 1M}")
+        self.assertEqual(str(i), 'iperf -c lts -f K -b 1M -i 1 -t 1')
+        # FIXME doesn't keep ordering when adding
+        self.assertEqual(str(i + i2), "iperf -c lprova -i 10 -b 1M -t 1 -f M")
     
     def testApConf(self):
         pass
@@ -55,23 +56,6 @@ class TestSize(unittest.TestCase):
     def testTranslate(self):
         self.assertEqual(self.small[0].translate('K'), self.small[1])
         
-
-def iperfAnalyzer():
-    """Generates the configuration, executes the program and plot it"""
-    iperf = Plotter("iperf output")
-    for f in TESTFILES:
-        o = IperfOutput({})
-
-    iperf = Plotter("iperf output")
-    for count in range(20):
-        i = IperfConf("lts")
-        cmd = "iperf " + str(IperfConf("koalawlan"))
-        _, w, _ = os.popen3(cmd)
-        out = IperfOutput(w, {})
-        for x in out.nextResult():
-            print x, "\t",  out.result
-            iperf.update([x])
-
 class TestConstOpt(unittest.TestCase):
     def setUp(self):
         self.ipregex = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"

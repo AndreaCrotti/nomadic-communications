@@ -1,0 +1,64 @@
+%
+%  untitled
+%
+%  Created by andrea crotti on 2009-03-09.
+%  Copyright (c) 2009 Andrea Crotti Corp. All rights reserved.
+%
+\documentclass[]{article}
+
+% Use utf-8 encoding for foreign characters
+\usepackage[utf8]{inputenc}
+
+% Setup for fullpage use
+\usepackage{fullpage}
+
+% Uncomment some of the following if you use the features
+%
+% Running Headers and footers
+%\usepackage{fancyhdr}
+
+% Multipart figures
+%\usepackage{subfigure}
+
+% More symbols
+%\usepackage{amsmath}
+%\usepackage{amssymb}
+%\usepackage{latexsym}
+
+% Surround parts of graphics with box
+\usepackage{boxedminipage}
+
+% Package for including code in the document
+\usepackage{listings}
+
+% If you want to generate a toc for each chapter (use with book)
+\usepackage{minitoc}
+
+% This is now the recommended way for checking for PDFLaTeX:
+\usepackage{ifpdf}
+
+\ifpdf
+\usepackage[pdftex]{graphicx}
+\else
+\usepackage{graphicx}
+\fi
+\title{TITOLO}
+\author{Andrea Crotti, Fabio Cannioto, Alberto Scattolo, Christian Plattner}
+
+\date{2009-03-09}
+
+\begin{document}
+
+\ifpdf
+\DeclareGraphicsExtensions{.pdf, .jpg, .tif}
+\else
+\DeclareGraphicsExtensions{.eps, .jpg}
+\fi
+
+\maketitle
+
+
+
+\bibliographystyle{plain}
+\bibliography{}
+\end{document}
