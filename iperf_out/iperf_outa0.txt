@@ -3,30 +3,14 @@ Client connecting to koalawlan, UDP port 5001
 Sending 1470 byte datagrams
 UDP buffer size: 9.00 KByte (default)
 ------------------------------------------------------------
-[  3] local 192.168.0.2 port 50656 connected with 192.168.0.1 port 5001
+[  3] local 192.168.0.2 port 50783 connected with 192.168.0.1 port 5001
 [ ID] Interval       Transfer     Bandwidth
 [  3]  0.0- 5.0 sec  6715 KBytes  1343 KBytes/sec
 [ ID] Interval       Transfer     Bandwidth
-[  3]  5.0-10.0 sec  6714 KBytes  1343 KBytes/sec
+[  3]  5.0-10.0 sec  6708 KBytes  1342 KBytes/sec
 [ ID] Interval       Transfer     Bandwidth
-[  3] 10.0-15.0 sec  6714 KBytes  1343 KBytes/sec
-[ ID] Interval       Transfer     Bandwidth
-[  3] 15.0-20.0 sec  6715 KBytes  1343 KBytes/sec
-[ ID] Interval       Transfer     Bandwidth
-[  3] 20.0-25.0 sec  6714 KBytes  1343 KBytes/sec
-[ ID] Interval       Transfer     Bandwidth
-[  3] 25.0-30.0 sec  6714 KBytes  1343 KBytes/sec
-[ ID] Interval       Transfer     Bandwidth
-[  3] 30.0-35.0 sec  6714 KBytes  1343 KBytes/sec
-[ ID] Interval       Transfer     Bandwidth
-[  3] 35.0-40.0 sec  6690 KBytes  1338 KBytes/sec
-[ ID] Interval       Transfer     Bandwidth
-[  3] 40.0-45.0 sec  6714 KBytes  1343 KBytes/sec
-[ ID] Interval       Transfer     Bandwidth
-[  3] 45.0-50.0 sec  6715 KBytes  1343 KBytes/sec
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0-50.0 sec  67122 KBytes  1342 KBytes/sec
-[  3] Sent 46757 datagrams
+[  3]  0.0-10.0 sec  13425 KBytes  1342 KBytes/sec
+[  3] Sent 9352 datagrams
 [  3] Server Report:
 [ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
-[  3]  0.0-50.6 sec  43151 KBytes    853 KBytes/sec  0.650 ms 16698/46757 (36%)
+[  3]  0.0-10.5 sec  8310 KBytes    791 KBytes/sec  0.632 ms 3563/ 9352 (38%)

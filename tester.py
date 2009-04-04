@@ -19,8 +19,10 @@ except ImportError, i:
     print "you will be unable to plot in real time"
     GNUPLOT = False
     
+dial = None
 if os.path.exists('dialog.py'):
     import dialog
+    dial = dialog.Dialog()
     DIALOG = True
 else:
     DIALOG = False
@@ -28,6 +30,12 @@ else:
 CODENAME_FORMAT = r"\w\d+"
 SIMULATE = False
 VERBOSE = False
+
+def clear():
+    if sys.platform == 'win32':
+        os.system('cls')
+    else:
+        os.system('clear')
 
 class MenuMaker:
     """Generates a nice menu"""
@@ -70,9 +78,10 @@ class Cnf:
         self.conf = {}
         self.to_conf()
     
-    # Check if it's the best representation possible
+    # TODO Check if it's the best representation possible
     def __str__(self):
-        return ';\t'.join([str(val) for key, val in self.conf.items()])
+        intersect = set(self.show_opt).intersection(self.conf.keys())
+        return ';\t'.join([str(self.conf[k]) for k in intersect])
     
     def __repr__(self):
         return str(self)
@@ -83,7 +92,7 @@ class Cnf:
     def __eq__(self, other):
         return self.conf == other.conf
 
-    def __neq__(self, other):
+    def __ne__(self, other):
         return not(self == other)
 
     def __add__(self, other):
@@ -107,6 +116,9 @@ class Cnf:
             return self.conf[idx].value
         except KeyError:
             print "key %s does not exist" % str(idx)
+
+    def keys(self):
+        return self.conf.iterkeys()
     
     def is_empty(self):
         return self.conf == {}
@@ -165,10 +177,11 @@ class IperfConf(Cnf):
 class ApConf(Cnf):
     def __init__(self, conf):
         self.raw_conf = conf
-        par = ["speed", "rts_threshold", "frag_threshold", "ip", "ssid",
+        par = ["mode", "speed", "rts_threshold", "frag_threshold", "ip", "ssid",
                 "channel", "comment", "firmware", "model"]
         # FIXME not really beatiful
         self.options = dict(zip(par, par))
+        self.show_opt = ["mode", "speed", "rts_threshold", "frag_threshold"]
         Cnf.__init__(self, "ap")
 
 class ClientConf(Cnf):
@@ -176,20 +189,14 @@ class ClientConf(Cnf):
         self.raw_conf = conf
         par = ["speed", "brand", "model", "driver"]
         self.options = dict(zip(par, par))
+        self.show_opt = ["speed"]
         Cnf.__init__(self, "client")
-
-class TestConf(Cnf):
-    def __init__(self, conf):
-        self.raw_conf = conf
-        self.options = dict(num_tests = "num_tests")
-        Cnf.__init__(self, "test")
 
 # CHANGED I had to pull opt_conf outside to let shelve pickle work
 opt_conf = {
     "iperf" : lambda x: IperfConf(x),
     "ap"    : lambda x: ApConf(x),
     "client": lambda x: ClientConf(x),
-    "test"  : lambda x: TestConf(x)
 }
 
 class Configuration:
@@ -198,7 +205,7 @@ class Configuration:
     This is the basic type we're working on.
     The configuration is always kept as complete, in the sense that it also keeps
     all the possible alternatives, to_min will output a minimal dictionary representing
-    the default"""
+    the default values"""
 
     def __init__(self, conf_file, codename = ""): #CHANGED codename only given by ini_file
         self.conf = {}
@@ -263,6 +270,9 @@ class Configuration:
             for key, val in opt.items():
                 writer.set(sec, key, val.value)
         writer.write(conf_file)
+
+    def keys(self):
+        return self.conf.iterkeys()
                     
     def from_ini(self, conf_file):
         """Takes a configuration from ini"""
@@ -323,22 +333,36 @@ class TestBattery:
                 groups.append([test])
         return groups
 
-    # TODO implement check of consistency
-    def check_consistency(self, conf):
+    def is_consistent(self, conf):
         """Checking if configuration loaded is consistent with default configuration"""
-        pass
+        for sec in conf.keys():
+            if sec not in self.default_conf.keys():
+                print "section %s not found, skipping it" % str(sec)
+            else:
+                for opt in conf[sec].keys():
+                    if opt not in self.default_conf[sec].keys():
+                        print "option %s not found, skipping it" % str(opt)
+                    else:
+                        param = self.default_conf[sec].conf[opt]
+                        if not(param.valid(conf[sec].conf[opt].value)):
+                            print "option %s not valid %s \n" % (opt, param.choices())
+                            return False
+        return True
     
     def load_conf(self, conf_file):
         """Loads a configuration from conf_file merging it with
         the default configuration"""
         # the codename is given from the conf_file
         cnf = Configuration(conf_file, codename = re.search(r"\w\d+", conf_file).group())
-        merged = self.default_conf + cnf
-        if merged in self.battery:
-            print "you have already loaded the configuration in %s, not adding" % conf_file
+        if self.is_consistent(cnf):
+            merged = self.default_conf + cnf
+            if merged in self.battery:
+                print "you have already loaded the configuration in %s, not adding" % conf_file
+            else:
+                print "adding configuration in %s" % conf_file
+                self.battery.append(merged)
         else:
-            print "adding configuration in %s" % conf_file
-            self.battery.append(merged)
+            print "error in %s, please correct the values" % conf_file
 
     def load_configs(self):
         for conf in self.test_configs:
@@ -349,6 +373,7 @@ class TestBattery:
         CONF = "\n\nconfiguration -> \n %s\n"
         def sub_run(tests):
             raw_input("check configuration of parameters before starting the automatic tests, press enter when done \n")
+            clear()
             for test_conf in tests:
                 Tester(test_conf).run_test()
             
@@ -416,7 +441,7 @@ class Tester:
         """Class which encapsulates other informations about the test and run it"""
         self.conf = conf
         self.analyzer = IperfOutPlain()
-        self.get_time = lambda: time.strftime("%H:%M", time.localtime())
+        self.get_time = lambda: time.strftime("%d-%m-%y_%H:%M", time.localtime())
         self.output = shelve.open("test_result")
         self.iperf_out_file = os.path.join("iperf_out", "iperf_out" + self.conf.codename + ".txt")
         # The None values are surely rewritten before written to shelve dictionary
@@ -454,23 +479,22 @@ class Tester:
             self.output.close()
             if GNUPLOT:
                 self.plotter = Plotter("testing", "kbs")
-                self.plotter.add_data(self.test_conf["result"]["values"], "testing")
+                self.plotter.add_data(self.test_conf["result"]["values"], self.conf.codename)
                 self.plotter.plot()        
 
 if __name__ == '__main__':
-    # TODO adding a simulation and verbosity flag
     opts, args = getopt(sys.argv[1:], 'vs', ['verbose', 'simulate'])
     for o, a in opts:
         if o in ('-v', '--verbose'):
             VERBOSE = True
         if o in ('-s', '--simulate'):
             SIMULATE = True
-
     # we can pass as many configs files as you want or just let
     # the program look for them automatically
     if args:
         t = TestBattery()
         for conf_file in args:
             t.load_conf(conf_file)
+            t.run()
     else:
         TestBattery().batch()

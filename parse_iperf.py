@@ -104,8 +104,7 @@ class Opt:
     trying to set a value which is not feasible for the option"""
     def __init__(self, name, value = None):
         self.name = name
-        self.value = value
-        self.setted = True
+        self.set(value)
     
     def __str__(self):
         if not self.setted:
@@ -173,7 +172,7 @@ class ParamOpt(Opt):
     """Option with a parameter
     This takes a list of possible values and checks every time if input is safe"""
     def __init__(self, name, value, val_list):
-        self.val_list = val_list        
+        self.val_list = val_list
         Opt.__init__(self, name, value)
 
     def valid(self, value):
