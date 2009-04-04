@@ -8,6 +8,7 @@ import shelve
 import time
 import ConfigParser
 from glob import glob
+from getopt import getopt
 from copy import deepcopy
 from parse_iperf import *
 
@@ -23,6 +24,10 @@ if os.path.exists('dialog.py'):
     DIALOG = True
 else:
     DIALOG = False
+    
+CODENAME_FORMAT = r"\w\d+"
+SIMULATE = False
+VERBOSE = False
 
 class MenuMaker:
     """Generates a nice menu"""
@@ -148,7 +153,7 @@ class IperfConf(Cnf):
 
     def __str__(self):
         res = ""
-        # FIXED in this way I'm safe that I always have the right order
+        # CHANGED in this way I'm safe that I always have the right order
         for o in self.options.keys():
             if self.conf.has_key(o):
                 res += str(self.conf[o]) + " "
@@ -192,15 +197,13 @@ class Configuration:
     all the possible alternatives, to_min will output a minimal dictionary representing
     the default"""
 
-    def __init__(self, codename = "", conf_file = ""):
-        self.codename = codename
+    def __init__(self, conf_file, codename = ""): #CHANGED codename only given by ini_file
         self.conf = {}
         # TODO use the default method passing when creating the dict
         self.reader = ConfigParser.ConfigParser()
-
-        # maybe also set during __init__
-        if conf_file:
-            self.from_ini(open(conf_file))
+        self.conf_file = conf_file
+        self.from_ini(open(conf_file))      # directly creating from __init__
+        self.codename = codename
         
     def __str__(self):
         return '\n'.join(["%s:\t %s" % (str(k), str(v)) for k, v in self.conf.items()])
@@ -286,18 +289,18 @@ class TestBattery:
     def __init__(self):
         # setting also the order in this way,
         self.conf_file = "config.ini"
-        self.default_conf = Configuration("default", self.conf_file)
+        self.default_conf = Configuration(self.conf_file, codename = "default")
         self.auto = set(["iperf"])
         # maybe use "sets" to avoid duplicates
         self.conf_dir = "configs"
         # list of all possible tests stored
-        self.test_configs = glob(os.path.join(self.conf_dir, '*ini'))
+        self.test_configs = filter(lambda x: re.search("\w\d+", x), glob(os.path.join(self.conf_dir, '*ini')))
         self.battery = []
 
     def _group_auto(self):
         """Groups configuration in a way such that human
         intervent is as minumum"""
-        # FIXME using new - and + overloaded operators
+        # CHANGED using new - and + overloaded operators
         def eql(t1, t2):
             changed = set((t1 - t2).conf.keys())
             return changed.issubset(self.auto)
@@ -317,10 +320,11 @@ class TestBattery:
     def load_conf(self, conf_file):
         """Loads a configuration from conf_file merging it with
         the default configuration"""
-        cnf = Configuration(conf_file, conf_file)
+        # the codename is given from the conf_file
+        cnf = Configuration(conf_file, codename = re.search(r"\w\d+", conf_file).group())
         merged = self.default_conf + cnf
         if merged in self.battery:
-            print "you already the configuration in %s, not adding" % conf_file
+            print "you have already loaded the configuration in %s, not adding" % conf_file
         else:
             print "adding configuration in %s" % conf_file
             self.battery.append(merged)
@@ -334,7 +338,8 @@ class TestBattery:
         print "running the test"
         groups = self._group_auto()
         for sub in groups:
-            print "configuration -> \n %s\n" % sub[0]
+            # TODO only printing difference from previous group if possible
+            print "\n\nconfiguration -> \n %s\n" % sub[0]
             raw_input("check configuration of parameters before starting the automatic tests, press enter when done \n")
             for test_conf in sub:
                 Tester(test_conf).run_test()
@@ -395,6 +400,7 @@ class Tester:
         self.analyzer = IperfOutPlain()
         self.get_time = lambda: time.strftime("%H:%M", time.localtime())
         self.output = shelve.open("test_result")
+        self.iperf_out_file = os.path.join("iperf_out", "iperf_out" + self.conf.codename + ".txt")
         # The None values are surely rewritten before written to shelve dictionary
         self.test_conf = {
             "platform"  : os.uname(),
@@ -409,24 +415,44 @@ class Tester:
         cmd = str(self.conf['iperf'])
         self.test_conf["start"] = self.get_time()
         print "executing %s" % cmd
+        print "also writing output to %s" % self.iperf_out_file
         # TODO insert a test to verify if the host is responding
-        _, w, e = os.popen3(cmd)
-        for line in w.readlines():
-            self.analyzer.parse_line(line)
-
-        self.test_conf["end"] = self.get_time()
-        self.test_conf["result"] = self.analyzer.result
-        # =========================================================================
-        # = IMPORTANT, if given twice the same conf it overwrites the old results =
-        # =========================================================================
-        self.output[str(self.conf)] = self.test_conf
-        self.output.sync()
-        self.output.close()
-        if GNUPLOT:
-            self.plotter = Plotter("testing", "kbs")
-            self.plotter.add_data(self.test_conf["result"]["values"], "testing")
-            self.plotter.plot()        
+        if SIMULATE:
+            print "only simulating execution"
+        else:
+            _, w, e = os.popen3(cmd)
+            out_file = open(self.iperf_out_file, 'w')
+            for line in w.readlines():
+                out_file.write(line)      # writing iperf output also to file (to double check results)
+                self.analyzer.parse_line(line)
+            out_file.close()
+        
+            self.test_conf["end"] = self.get_time()
+            self.test_conf["result"] = self.analyzer.result
+            # =========================================================================
+            # = IMPORTANT, if given twice the same conf it overwrites the old results =
+            # =========================================================================
+            self.output[str(self.conf)] = self.test_conf
+            self.output.close()
+            if GNUPLOT:
+                self.plotter = Plotter("testing", "kbs")
+                self.plotter.add_data(self.test_conf["result"]["values"], "testing")
+                self.plotter.plot()        
 
 if __name__ == '__main__':
     # TODO adding a simulation and verbosity flag
-    TestBattery().batch()
+    opts, args = getopt(sys.argv[1:], 'vs', ['verbose', 'simulate'])
+    for o, a in opts:
+        if o in ('-v', '--verbose'):
+            VERBOSE = True
+        if o in ('-s', '--simulate'):
+            SIMULATE = True
+
+    # we can pass as many configs files as you want or just let
+    # the program look for them automatically
+    if args:
+        t = TestBattery()
+        for conf_file in args:
+            t.load_conf(conf_file)
+    else:
+        TestBattery().batch()
