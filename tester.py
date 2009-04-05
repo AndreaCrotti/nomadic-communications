@@ -63,6 +63,7 @@ class Cnf:
     def __ne__(self, other):
         return not(self == other)
 
+    # TODO adding a check to see if null value in the second?
     def __add__(self, other):
         merged = deepcopy(self)
         merged.conf.update(other.conf)
@@ -140,7 +141,8 @@ class IperfConf(Cnf):
         res = ""
         # CHANGED finally fixed ordering of options in iperf
         for o in self.show_opt:
-            res += str(self.conf[o]) + " "
+            if self.conf.has_key(o):
+                res += str(self.conf[o]) + " "
         return "iperf " + res.rstrip() # take off last space, pretty ugly
 
 class ApConf(Cnf):
@@ -275,7 +277,7 @@ class TestBattery:
     def __init__(self):
         try:
             # maybe need to close also somewhere
-            self.conf_file = "config.ini"
+            self.conf_file = "default.ini"
         except IOError:
             print "unable to found default configuration, quitting"
             sys.exit(BADCONF)
@@ -290,8 +292,7 @@ class TestBattery:
             self.battery = []
 
     def _group_auto(self):
-        """Groups configuration in a way such that human
-        intervent is as minumum"""
+        """Groups configuration in a way such that intervent is minumum"""
         # CHANGED using new - and + overloaded operators
         def eql(t1, t2):
             changed = set((t1 - t2).conf.keys())
@@ -348,17 +349,33 @@ class TestBattery:
     def run(self):
         """Start the tests, after having sorted them"""
         CONF = "\n\nconfiguration -> \n %s\n"
+        # TODO change the name of this file in relation to user_conf loaded
         SHOUT = shelve.open("test_result_tmp")
         def sub_run(tests):
             raw_input("check configuration of parameters before starting the automatic tests, press enter when done \n")
             clear()
-            for test_conf in tests:
-                Tester(test_conf, SHOUT).run_test()
+            i = 0
+            # CHANGED added a very nice control over possible signals
+            while i < len(tests):
+                try:
+                    key, val = Tester(tests[i]).run_test()
+                    SHOUT[key] = val
+                    SHOUT.sync()
+                    print "at %i we have %s\n:" % (i, str(SHOUT.values()))
+                    i += 1
+                except KeyboardInterrupt:
+                    a = raw_input("last test canceled, (s)kip or (r)estart or (q)uit the test session")
+                    if a == 'q':
+                        sys.exit(0)
+                    elif a == 's':
+                        i += 1
+                    # not increasing we automatically stay in the same test (default behaviour)
             
         groups = self._group_auto()
         if not groups:
             print "no configurations loaded, quitting"
             sys.exit(BADCONF)
+
         first = groups[0]
         print CONF % first[0]
         sub_run(first)
@@ -413,12 +430,11 @@ class Plotter:
 # = Configuration analysis =
 # ==========================
 class Tester:
-    def __init__(self, conf, output):
+    def __init__(self, conf):
         """Class which encapsulates other informations about the test and run it"""
         self.conf = conf
         self.analyzer = IperfOutPlain()
         self.get_time = lambda: time.strftime("%d-%m-%y_%H:%M", time.localtime())
-        self.output = output
         self.iperf_out_file = os.path.join("iperf_out", "iperf_out_" + self.conf.codename + ".txt")
         # The None values are surely rewritten before written to shelve dictionary
         self.test_conf = {
@@ -437,6 +453,8 @@ class Tester:
         if SIMULATE:
             print "only simulating execution of %s" % cmd
         else:
+            clear()
+            print "\t TEST %s:\n" % self.conf.codename
             print "executing %s" % cmd
             print "also writing output to %s" % self.iperf_out_file
             _, w, e = os.popen3(cmd)
@@ -456,13 +474,13 @@ class Tester:
             # =========================================================================
             # = IMPORTANT, if given twice the same conf it overwrites the old results =
             # =========================================================================
-            print "writing on key %s value %s\n" % (self.conf.codename, str(self.test_conf))
-            self.output[self.conf.codename] = self.test_conf
             
             if GNUPLOT:
                 self.plotter = Plotter("testing", "kbs")
                 self.plotter.add_data(self.test_conf["result"]["values"], self.conf.codename)
-                self.plotter.plot()        
+                self.plotter.plot()
+
+            return self.conf.codename, self.test_conf
 
 def usage():
     return """
