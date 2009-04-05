@@ -133,7 +133,7 @@ class IperfConf(Cnf):
             "interval" : "-i",
             "udp"   : "-u"
         }
-        self.show_opt = ["host", "speed", "udp", "time", "interval", "format"]
+        self.show_opt = ["host", "udp", "speed", "time", "interval", "format"]
         Cnf.__init__(self, "iperf")
 
     def __str__(self):
@@ -348,11 +348,12 @@ class TestBattery:
     def run(self):
         """Start the tests, after having sorted them"""
         CONF = "\n\nconfiguration -> \n %s\n"
+        SHOUT = shelve.open("test_result_tmp")
         def sub_run(tests):
             raw_input("check configuration of parameters before starting the automatic tests, press enter when done \n")
             clear()
             for test_conf in tests:
-                Tester(test_conf).run_test()
+                Tester(test_conf, SHOUT).run_test()
             
         groups = self._group_auto()
         if not groups:
@@ -362,10 +363,9 @@ class TestBattery:
         print CONF % first[0]
         sub_run(first)
         for i in range(1, len(groups)):
-            # in this way we only show the difference from the last group
-            # of tests
             print CONF % (groups[i][0] - groups[i-1][0])
             sub_run(groups[i])
+        SHOUT.close()
     
     def batch(self):
         self.load_configs()
@@ -413,12 +413,12 @@ class Plotter:
 # = Configuration analysis =
 # ==========================
 class Tester:
-    def __init__(self, conf):
+    def __init__(self, conf, output):
         """Class which encapsulates other informations about the test and run it"""
         self.conf = conf
         self.analyzer = IperfOutPlain()
         self.get_time = lambda: time.strftime("%d-%m-%y_%H:%M", time.localtime())
-        self.output = shelve.open("test_result")
+        self.output = output
         self.iperf_out_file = os.path.join("iperf_out", "iperf_out_" + self.conf.codename + ".txt")
         # The None values are surely rewritten before written to shelve dictionary
         self.test_conf = {
@@ -456,8 +456,9 @@ class Tester:
             # =========================================================================
             # = IMPORTANT, if given twice the same conf it overwrites the old results =
             # =========================================================================
+            print "writing on key %s value %s\n" % (self.conf.codename, str(self.test_conf))
             self.output[self.conf.codename] = self.test_conf
-            self.output.close()
+            
             if GNUPLOT:
                 self.plotter = Plotter("testing", "kbs")
                 self.plotter.add_data(self.test_conf["result"]["values"], self.conf.codename)
