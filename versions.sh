@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
-echo "python: " $(python --version)
-echo "gnuplot: " $(gnuplot --version)
-echo "sys: " $(uname -v)
+PY=$(python --version 2>&1)
+GP=$(gnuplot --version)
+SYS=$(uname -v)
+
+echo "python: $PY"
+echo "gnuplot: $GP"
+echo "sys: $SYS"

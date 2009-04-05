@@ -38,6 +38,9 @@ class IperfOutput(object):
     
     def __str__(self):
         return str(self.result)
+    
+    def __repr__(self):
+        return str(self)
 
     def parse_file(self, filename):
         "Takes the filename"
@@ -110,7 +113,10 @@ class Opt:
         if not self.setted:
             return ''
         else:
-            return (self.name + " " + str(self.value))
+            if not self.value:
+                return self.name
+            else:
+                return (self.name + " " + str(self.value))
             
     def __repr__(self):
         return str(self)

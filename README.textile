@@ -4,10 +4,9 @@ This project is about testing network performances with different wireless devic
 
 Results are then statistically analyzed and there will be 2 relations (in latex) explaining the results.
 
-
 h1. USAGE
 
-This program firt load the default configuration from __config.ini__ and then all the __*.ini__ files found in the __configs__ folder.
+This program first load the default configuration from __config.ini__ and then all the __*.ini__ files found in the __configs__ folder.
 The configuration are merged and loaded in a big list, which is analyzed and resorted in order to need the minimal human input as possible.
 
 The list is in fact divided in sublists which contain configurations which different only by parameter than can be set automatically by the program itself (in this moment just "iperf").

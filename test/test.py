@@ -56,12 +56,14 @@ class TestCnf(unittest.TestCase):
         i = IperfConf(self.iperf_conf)
         i2 = IperfConf(self.iperf_conf2)
         self.assertEqual(str(i), 'iperf -c lts -f K -b 1M -i 1 -t 1')
-        # FIXME doesn't keep ordering when adding
         self.assertEqual(str(i + i2), "iperf -c lprova -i 10 -b 1M -t 1 -f M")
         self.assertEqual(str(i - i2), "iperf -c lprova -i 10 -b 1M -t 1 -f M")
     
     def testApConf(self):
         pass
+
+class TestIperfOut:
+    
 
 # TODO rewrite testIperfOutput
 class TestSize(unittest.TestCase):
