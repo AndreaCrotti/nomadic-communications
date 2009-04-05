@@ -19,17 +19,13 @@ except ImportError, i:
     print "you will be unable to plot in real time"
     GNUPLOT = False
     
-dial = None
-if os.path.exists('dialog.py'):
-    import dialog
-    dial = dialog.Dialog()
-    DIALOG = True
-else:
-    DIALOG = False
-    
-CODENAME_FORMAT = r"\w\d+"
+# codename is simply composed by one digit and one letter, 1a, 2b, 5e for example
+CODENAME_FORMAT = r"\d\w"
 SIMULATE = False
 VERBOSE = False
+
+BADHOST = 1
+BADCONF = 2
 
 def clear():
     if sys.platform == 'win32':
@@ -37,46 +33,18 @@ def clear():
     else:
         os.system('clear')
 
-class MenuMaker:
-    """Generates a nice menu"""
-    def __init__(self, choices, key = "val"):
-        self.choices = choices
-        self.key = key
-        self.default = self.choices[0]
-        self.menu = dict(enumerate(self.choices))
-        
-    def __str__(self):
-        return '\n'.join([str(i) + ")\t" + str(self.menu[i]) for i in range(len(self.choices))])
-    
-    def __getitem__(self, idx):
-        if self.key == "val":
-            return self.menu[idx]
-        elif self.key == 'idx':
-            return idx
-        
-# TODO Use dialog if available
-def menu_set(menu):
-    while True:
-        print str(menu)
-        val = raw_input("make a choice (default %s):\n\n" % str(menu.default))
-        if val == '':
-            if menu.key == "val":
-                return self.default
-            else:
-                return 0
-        else:
-            try:
-                return menu[int(val)]
-            except KeyError:
-                continue
-            except ValueError:
-                print "you must give integer input"
-                continue
-
 class Cnf:
     def __init__(self, name):
         self.conf = {}
         self.to_conf()
+        # setting the complementar, all options which are not normally shown
+        try:
+            getattr(self, "show_opt")
+        except AttributeError:
+            self.show_opt = list(set(self.conf.keys()))
+            self.non_show_opt = []
+        else:
+            self.non_show_opt = list(set(self.conf.keys()) - set(self.show_opt))
     
     # TODO Check if it's the best representation possible
     def __str__(self):
@@ -143,11 +111,11 @@ class Cnf:
                 # = IMPORTANT, default value is the first in the list =
                 # =====================================================
                 self.conf[key] = ParamOpt(self.options[key], v[0], v)
+            elif v in ('True', 'False'):
+                if v == 'True':
+                    self.conf[key] = ConstOpt(self.options[key], "") # otherwise just do nothing
             else:
                 self.conf[key] = ConstOpt(self.options[key], v)
-    
-    def params(self):
-        return [k for k in self.conf.keys() if isinstance(self.conf[k], ParamOpt)]
     
 # ===============================================================
 # = Subclasses of CNF, they only contain which options to parse =
@@ -162,16 +130,17 @@ class IperfConf(Cnf):
             "speed" : "-b",
             "time"  : "-t",
             "format" :"-f",
-            "interval" : "-i"
+            "interval" : "-i",
+            "udp"   : "-u"
         }
+        self.show_opt = ["host", "speed", "udp", "time", "interval", "format"]
         Cnf.__init__(self, "iperf")
 
     def __str__(self):
         res = ""
-        # CHANGED in this way I'm safe that I always have the right order
-        for o in self.options.keys():
-            if self.conf.has_key(o):
-                res += str(self.conf[o]) + " "
+        # CHANGED finally fixed ordering of options in iperf
+        for o in self.show_opt:
+            res += str(self.conf[o]) + " "
         return "iperf " + res.rstrip() # take off last space, pretty ugly
 
 class ApConf(Cnf):
@@ -211,7 +180,6 @@ class Configuration:
         self.conf = {}
         # TODO use the default method passing when creating the dict
         self.reader = ConfigParser.ConfigParser()
-        self.conf_file = conf_file
         self.from_ini(open(conf_file))      # directly creating from __init__
         self.codename = codename
         
@@ -234,6 +202,7 @@ class Configuration:
         self.conf[idx] = val     
 
     def __sub__(self, other):
+        """Substraction between configuration, equal values are eliminated"""
         diff = deepcopy(self)
         for key in diff.conf.keys():
             if other.conf.has_key(key):
@@ -257,7 +226,7 @@ class Configuration:
         return merged
 
     def to_min(self):
-        # creating a new dictionary automatically minimizing values
+        """Returns a new dictionary with only not null keys"""
         return dict(zip(self.conf.keys(), map(lambda x: x.to_min(), self.conf.values())))
     
     def _write_conf(self, conf_file):
@@ -289,6 +258,7 @@ class Configuration:
                 self.conf[sec] = opt_conf[sec](tmpconf)
             except KeyError:
                 print "section %s not existing, skipping it" % sec
+        conf_file.close()
         
     def to_ini(self, ini_file):
         self._write_conf(ini_file)
@@ -303,15 +273,21 @@ class Configuration:
 
 class TestBattery:
     def __init__(self):
-        # setting also the order in this way,
-        self.conf_file = "config.ini"
-        self.default_conf = Configuration(self.conf_file, codename = "default")
-        self.auto = set(["iperf"])
-        # maybe use "sets" to avoid duplicates
-        self.conf_dir = "configs"
-        # list of all possible tests stored
-        self.test_configs = filter(lambda x: re.search("\w\d+", x), glob(os.path.join(self.conf_dir, '*ini')))
-        self.battery = []
+        try:
+            # maybe need to close also somewhere
+            self.conf_file = "config.ini"
+        except IOError:
+            print "unable to found default configuration, quitting"
+            sys.exit(BADCONF)
+        
+        else:
+            self.default_conf = Configuration(self.conf_file, codename = "default")
+            self.auto = set(["iperf"])
+            # maybe use "sets" to avoid duplicates
+            self.conf_dir = "configs"
+            # list of all possible configs stored, better not opening directly here
+            self.test_configs = filter(lambda x: re.search(CODENAME_FORMAT, x), glob(os.path.join(self.conf_dir, '*ini')))
+            self.battery = []
 
     def _group_auto(self):
         """Groups configuration in a way such that human
@@ -349,11 +325,11 @@ class TestBattery:
                             return False
         return True
     
-    def load_conf(self, conf_file):
+    def load_conf(self, conf_file, codename):
         """Loads a configuration from conf_file merging it with
         the default configuration"""
         # the codename is given from the conf_file
-        cnf = Configuration(conf_file, codename = re.search(r"\w\d+", conf_file).group())
+        cnf = Configuration(conf_file, codename)
         if self.is_consistent(cnf):
             merged = self.default_conf + cnf
             if merged in self.battery:
@@ -366,7 +342,8 @@ class TestBattery:
 
     def load_configs(self):
         for conf in self.test_configs:
-            self.load_conf(conf)
+            codename = re.search(CODENAME_FORMAT, conf).group()
+            self.load_conf(conf, codename)
     
     def run(self):
         """Start the tests, after having sorted them"""
@@ -378,6 +355,9 @@ class TestBattery:
                 Tester(test_conf).run_test()
             
         groups = self._group_auto()
+        if not groups:
+            print "no configurations loaded, quitting"
+            sys.exit(BADCONF)
         first = groups[0]
         print CONF % first[0]
         sub_run(first)
@@ -386,10 +366,6 @@ class TestBattery:
             # of tests
             print CONF % (groups[i][0] - groups[i-1][0])
             sub_run(groups[i])
-    
-    def show_tests(self):
-        for test in self.battery:
-            test.show()
     
     def batch(self):
         self.load_configs()
@@ -443,7 +419,7 @@ class Tester:
         self.analyzer = IperfOutPlain()
         self.get_time = lambda: time.strftime("%d-%m-%y_%H:%M", time.localtime())
         self.output = shelve.open("test_result")
-        self.iperf_out_file = os.path.join("iperf_out", "iperf_out" + self.conf.codename + ".txt")
+        self.iperf_out_file = os.path.join("iperf_out", "iperf_out_" + self.conf.codename + ".txt")
         # The None values are surely rewritten before written to shelve dictionary
         self.test_conf = {
             "platform"  : os.uname(),
@@ -459,36 +435,53 @@ class Tester:
         self.test_conf["start"] = self.get_time()
         # TODO insert a test to verify if the host is responding
         if SIMULATE:
-            print "only simulating execution"
+            print "only simulating execution of %s" % cmd
         else:
             print "executing %s" % cmd
             print "also writing output to %s" % self.iperf_out_file
             _, w, e = os.popen3(cmd)
+            # with this line we check if the host is responding or not
+            if re.search("did not receive ack", e.read()):
+                print "host %s not responding, quitting the test" % self.conf['iperf']['host']
+                sys.exit(BADHOST)
+            
             out_file = open(self.iperf_out_file, 'w')
             for line in w.readlines():
                 out_file.write(line)      # writing iperf output also to file (to double check results)
                 self.analyzer.parse_line(line)
             out_file.close()
-        
+
             self.test_conf["end"] = self.get_time()
             self.test_conf["result"] = self.analyzer.result
             # =========================================================================
             # = IMPORTANT, if given twice the same conf it overwrites the old results =
             # =========================================================================
-            self.output[str(self.conf)] = self.test_conf
+            self.output[self.conf.codename] = self.test_conf
             self.output.close()
             if GNUPLOT:
                 self.plotter = Plotter("testing", "kbs")
                 self.plotter.add_data(self.test_conf["result"]["values"], self.conf.codename)
                 self.plotter.plot()        
 
+def usage():
+    return """
+    ./tester.py [-s|--simulate] <conf1> <conf2>...
+    if no file are given in input it loads the configuration files "configs/test_\d\w.ini"""
+
+
 if __name__ == '__main__':
-    opts, args = getopt(sys.argv[1:], 'vs', ['verbose', 'simulate'])
+    # TODO check input from stdin (fake file better than StringIO)
+    # TODO use optparse instead, much more flexible
+    opts, args = getopt(sys.argv[1:], 'vsh', ['verbose', 'simulate', 'help'])
     for o, a in opts:
+        if o in ('-h', '--help'):
+            print usage()
+            sys.exit(0)
         if o in ('-v', '--verbose'):
             VERBOSE = True
         if o in ('-s', '--simulate'):
             SIMULATE = True
+
     # we can pass as many configs files as you want or just let
     # the program look for them automatically
     if args:
