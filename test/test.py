@@ -55,14 +55,47 @@ class TestCnf(unittest.TestCase):
     def testIperf(self):
         i = IperfConf(self.iperf_conf)
         i2 = IperfConf(self.iperf_conf2)
-        self.assertEqual(str(i), 'iperf -c lts -f K -b 1M -i 1 -t 1')
-        self.assertEqual(str(i + i2), "iperf -c lprova -i 10 -b 1M -t 1 -f M")
-        self.assertEqual(str(i - i2), "iperf -c lprova -i 10 -b 1M -t 1 -f M")
+        self.assertEqual(str(i), 'iperf -c lts -b 1M -t 1 -i 1 -f K')
+        self.assertEqual(str(i + i2), 'iperf -c lprova -b 1M -t 1 -i 10 -f M')
+        self.assertEqual(str(i - i2), 'iperf -c lprova -b 1M -t 1 -i 10 -f M')
     
     def testApConf(self):
         pass
 
-class TestIperfOut:
+class TestIperfOut(unittest.TestCase):
+    def setUp(self):
+        self.plain = """
+------------------------------------------------------------
+Client connecting to 192.168.1.1, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.1.23 port 52876 connected with 192.168.1.1 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0- 5.0 sec    612 KBytes    122 KBytes/sec
+[ ID] Interval       Transfer     Bandwidth
+[  3]  5.0-10.0 sec    610 KBytes    122 KBytes/sec
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  1223 KBytes    122 KBytes/sec
+[  3] Sent 852 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-6579.6 sec  1223 KBytes  0.19 KBytes/sec  0.006 ms    0/  852 (0%)
+"""
+        self.plain_res = {'avg': 0.19, 'jitter': 0.0060000000000000001, 'missed': 0, 'transfer': 1223, 'values': [122, 122, 122], 'total': 852}
+        
+    def testPlain(self):
+        i = IperfOutPlain()
+        for line in self.plain.splitlines():
+            i.parse_line(line)
+        self.assertEqual(i.result, self.plain_res)
+        # now testing with parse_line
+        i2 = IperfOutPlain()
+        # not creating a real file
+        f = StringIO.StringIO(self.plain)
+        i2.parse_file(f)
+        self.assertEqual(i2.result, self.plain_res)
+        
     
 
 # TODO rewrite testIperfOutput
