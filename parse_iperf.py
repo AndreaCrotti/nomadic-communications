@@ -44,7 +44,7 @@ class IperfOutput(object):
 
     def parse_file(self, filename):
         "Takes the filename"
-        for line in open(filename):
+        for line in filename:
             self.parse_line(line)
     
     def get_values(self):
