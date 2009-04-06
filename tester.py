@@ -27,6 +27,10 @@ VERBOSE = False
 BADHOST = 1
 BADCONF = 2
 
+USER_CONFS = "userconfs/%s.ini"
+IPERF_OUT = "iperf_out/iperf_out_%s.txt"
+CONFIGS = "configs/test_%s.ini"
+
 def clear():
     if sys.platform == 'win32':
         os.system('cls')
@@ -157,12 +161,27 @@ class ClientConf(Cnf):
         self.options = dict(zip(par, par))
         self.show_opt = ["speed"]
         Cnf.__init__(self, "client")
+        
+class MonitorConf(Cnf):
+    def __init__(self, conf):
+        self.raw_conf = conf
+        par = ["host", "interface"]
+        self.options = dict(zip(par, par))
+        Cnf.__init__(self, "monitor")
+        
+    def __str__(self):
+        if self.conf['host'] and self.conf['interface']:
+            cmd = " ".join(["ssh", self.conf['host'].value,  "tcpdump -i", self.conf['interface'].value])
+            return cmd
+        else:
+            return ""
 
 # CHANGED I had to pull opt_conf outside to let shelve pickle work
 opt_conf = {
     "iperf" : lambda x: IperfConf(x),
     "ap"    : lambda x: ApConf(x),
     "client": lambda x: ClientConf(x),
+    "monitor": lambda x: MonitorConf(x)
 }
 
 class Configuration:
@@ -270,7 +289,7 @@ class Configuration:
 
 
 class TestBattery:
-    def __init__(self):
+    def __init__(self, username):
         try:
             # maybe need to close also somewhere
             self.conf_file = "default.ini"
@@ -280,11 +299,12 @@ class TestBattery:
         
         else:
             self.default_conf = Configuration(self.conf_file, codename = "default")
+            self.username = username
+            self.user_conf = Configuration(USER_CONFS % self.username)
+            self.conf = self.default_conf + self.user_conf
             self.auto = set(["iperf"])
-            # maybe use "sets" to avoid duplicates
-            self.conf_dir = "configs"
             # list of all possible configs stored, better not opening directly here
-            self.test_configs = filter(lambda x: re.search(CODENAME_FORMAT, x), glob(os.path.join(self.conf_dir, '*ini')))
+            self.test_configs = filter(lambda x: re.search(CODENAME_FORMAT, x), glob(CONFIGS % "*"))
             self.battery = []
 
     def _group_auto(self):
@@ -349,11 +369,19 @@ class TestBattery:
         SHOUT = shelve.open("test_result_tmp")
         def sub_run(tests):
             raw_input("check configuration of parameters before starting the automatic tests, press enter when done \n")
-            clear()
             i = 0
             # CHANGED added a very nice control over possible signals
             while i < len(tests):
                 try:
+                    clear()
+                    cmd = str(self.conf['monitor'])
+                    if cmd != '': # then we must launch the command
+                        scp = "scp %s:%s %s" % (self.conf['monitor']['host'], self.username, self.conf.codename)
+                        options = " -c 1000 -w %s" % self.username
+                        cmd += options
+                        print "launching command %s" % cmd
+                        _, w, e = os.popen3(cmd)
+                    # now it starts the real iperf test
                     key, val = Tester(tests[i]).run_test()
                     if SHOUT.has_key(key):
                         a = raw_input("you are overwriting test % s, are you sure (y/n)" % key)
@@ -435,7 +463,7 @@ class Tester:
         self.conf = conf
         self.analyzer = IperfOutPlain()
         self.get_time = lambda: time.strftime("%d-%m-%y_%H:%M", time.localtime())
-        self.iperf_out_file = os.path.join("iperf_out", "iperf_out_" + self.conf.codename + ".txt")
+        self.iperf_out_file = IPERF_OUT % self.conf.codename
         # The None values are surely rewritten before written to shelve dictionary
         self.test_conf = {
             "platform"  : os.uname(),
@@ -453,7 +481,6 @@ class Tester:
         if SIMULATE:
             print "only simulating execution of %s" % cmd
         else:
-            clear()
             print "\t TEST %s:\n" % self.conf.codename
             print "executing %s" % cmd
             print "also writing output to %s" % self.iperf_out_file
@@ -483,20 +510,21 @@ class Tester:
             return self.conf.codename, self.test_conf
 
 def usage():
-    return """
-    ./tester.py [-s|--simulate] <conf1> <conf2>...
-    if no file are given in input it loads the configuration files "configs/test_\d\w.ini"""
+    print """
+    ./tester.py [-s|--simulate] <user> <conf1> <conf2>...
+    if no file are given in input it loads the configuration files "configs/test_\d\w.ini
+    user is mandatory and will pick up the configuration from userconfs/*.ini
+    """
+    sys.exit(0)
 
 
 if __name__ == '__main__':
     # TODO check input from stdin (fake file better than StringIO)
     # TODO use optparse instead, much more flexible
-    print locals()['Configuration']
     opts, args = getopt(sys.argv[1:], 'vsh', ['verbose', 'simulate', 'help'])
     for o, a in opts:
         if o in ('-h', '--help'):
-            print usage()
-            sys.exit(0)
+            usage()            
         if o in ('-v', '--verbose'):
             VERBOSE = True
         if o in ('-s', '--simulate'):
@@ -505,9 +533,17 @@ if __name__ == '__main__':
     # we can pass as many configs files as you want or just let
     # the program look for them automatically
     if args:
-        t = TestBattery()
-        for conf_file in args:
-            t.load_conf(conf_file)
-            t.run()
+        name = args[0]
+        if not(os.path.exists(USER_CONFS % name)):
+            print "no configuration for %s" % name
+            sys.exit(BADCONF)
+        else:
+            t = TestBattery(name)
+            if args[1:]:
+                for conf_file in args[1:]:  # all the others could be conf
+                    t.load_conf(conf_file)
+                    t.run()
+            else:
+                t.batch()
     else:
-        TestBattery().batch()
+        usage()
