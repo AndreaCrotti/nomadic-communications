@@ -37,9 +37,12 @@ Another possible way to use the program is to pass all the config files as argum
 __./tester.py__ [conf1] [conf2] ...
 will load all the configuration files and start the test.
 
+When the actual test is started (iperf being executed) if you think you made something wrong you can send a SIGKILL (ctrl-c) signal to the program.
+It will ask you if you want to skip that test quit everything or redo it, by default it restarts from the last test, it's the best behaviour because the last test is useless once stopped
+
 h2. Simulation
 
 There is also a simulation flag (-s) which is useful to see what it will be really executed.
 The configuration shown for every group is the difference from the previous one, in this way it's easily clear what parameter you have to change.
 
-The program doesn't show all the useless parameters (but they are still stored) like ssid, ip or driver for that card
+The program doesn't show all the useless parameters (but they are still stored for every test) like ssid, ip or driver for that card
