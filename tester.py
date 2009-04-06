@@ -54,6 +54,7 @@ class Cnf:
     def __repr__(self):
         return str(self)
 
+    # FIXME enough consistent?
     def __getitem__(self, idx):
         return self.conf[idx]
     
@@ -79,12 +80,6 @@ class Cnf:
                 else:
                     subt.conf[key] = other.conf[key]
         return subt
-
-    def __getitem__(self, idx):
-        try:
-            return self.conf[idx].value
-        except KeyError:
-            print "key %s does not exist" % str(idx)
 
     def keys(self):
         return self.conf.iterkeys()
@@ -114,7 +109,7 @@ class Cnf:
                 self.conf[key] = ParamOpt(self.options[key], v[0], v)
             elif v in ('True', 'False'):
                 if v == 'True':
-                    self.conf[key] = ConstOpt(self.options[key], "") # otherwise just do nothing
+                    self.conf[key] = ConstOpt(self.options[key], "") # TODO check if better BoolOpt
             else:
                 self.conf[key] = ConstOpt(self.options[key], v)
     
@@ -252,10 +247,11 @@ class Configuration:
             tmpconf = {}
             for opt in self.reader.options(sec):
                 val = self.reader.get(sec, opt)
-                if val.find(',') >= 0:
-                    tmpconf[opt] = val.replace(' ', '').split(',')
-                else:
-                    tmpconf[opt] = val
+                if re.search(r"\S", val):       # CHANGED only getting non null values \S is not blank
+                    if val.find(',') >= 0:
+                        tmpconf[opt] = val.replace(' ', '').split(',')
+                    else:
+                        tmpconf[opt] = val
             try:
                 self.conf[sec] = opt_conf[sec](tmpconf)
             except KeyError:
@@ -359,8 +355,12 @@ class TestBattery:
             while i < len(tests):
                 try:
                     key, val = Tester(tests[i]).run_test()
-                    SHOUT[key] = val
-                    SHOUT.sync()
+                    if SHOUT.has_key(key):
+                        a = raw_input("you are overwriting test % s, are you sure (y/n)" % key)
+                        if a == 'y':
+                            print "test %s overwritten " % key
+                            SHOUT[key] = val
+                            SHOUT.sync()
                     print "at %i we have %s\n:" % (i, str(SHOUT.values()))
                     i += 1
                 except KeyboardInterrupt:
@@ -491,6 +491,7 @@ def usage():
 if __name__ == '__main__':
     # TODO check input from stdin (fake file better than StringIO)
     # TODO use optparse instead, much more flexible
+    print locals()['Configuration']
     opts, args = getopt(sys.argv[1:], 'vsh', ['verbose', 'simulate', 'help'])
     for o, a in opts:
         if o in ('-h', '--help'):
