@@ -1,0 +1,16 @@
+------------------------------------------------------------
+Client connecting to lts, UDP port 5001
+Sending 1470 byte datagrams
+UDP buffer size: 9.00 KByte (default)
+------------------------------------------------------------
+[  3] local 172.16.201.1 port 56888 connected with 172.16.201.131 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0- 5.0 sec  1222 KBytes    244 KBytes/sec
+[ ID] Interval       Transfer     Bandwidth
+[  3]  5.0-10.0 sec  1220 KBytes    244 KBytes/sec
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  2443 KBytes    244 KBytes/sec
+[  3] Sent 1702 datagrams
+[  3] Server Report:
+[ ID] Interval       Transfer     Bandwidth       Jitter   Lost/Total Datagrams
+[  3]  0.0-10.0 sec  2443 KBytes    244 KBytes/sec  2.572 ms    0/ 1702 (0%)
