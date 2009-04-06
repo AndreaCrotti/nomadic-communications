@@ -6,8 +6,6 @@ def clear():
         os.system('cls')
     else:
         os.system('clear')
-        
-
 
 class MenuMaker:
     """Generates a nice menu"""
