@@ -27,6 +27,9 @@ class Cnf:
     def __repr__(self):
         return str(self)
 
+    def __iter__(self):
+        return self.conf.iterkeys()
+
     # FIXME enough consistent?
     def __getitem__(self, idx):
         return self.conf[idx]
@@ -221,6 +224,9 @@ class Configuration:
         merged.codename = other.codename
         return merged
 
+    def __iter__(self):
+        return self.conf.iterkeys()
+
     def to_min(self):
         """Returns a new dictionary with only not null keys"""
         return dict(zip(self.conf.keys(), map(lambda x: x.to_min(), self.conf.values())))
@@ -239,6 +245,7 @@ class Configuration:
     def keys(self):
         return self.conf.iterkeys()
                     
+    # FIXME code too convoluted, clean it
     def from_ini(self, conf_file):
         """Takes a configuration from ini"""
         self.reader.readfp(conf_file)
@@ -258,9 +265,9 @@ class Configuration:
                             print "a range must be of integers"
                         else:
                             if start >= end:
-                                print "nonsense range"
+                                print "nonsense range, fix it"
                             else:
-                                tmpconf[opt] = range(start, end)
+                                tmpconf[opt] = range(start, end+1)
                     else:
                         tmpconf[opt] = val
             try:
