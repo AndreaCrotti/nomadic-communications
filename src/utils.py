@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, subprocess
 
 def clear():
     """Clear the terminal screen, it should be portable in this way"""
@@ -6,6 +6,14 @@ def clear():
         os.system('cls')
     else:
         os.system('clear')
+
+# FIXME wait until the end, spawn the process maybe
+def play(message):
+    """Plays a wav file given in message"""
+    if sys.platform == 'darwin':
+        os.popen("playsound %s" % message)
+    else:
+        os.popen("aplay %s" % message)
 
 class MenuMaker:
     """Generates a nice menu"""
@@ -42,3 +50,24 @@ def menu_set(menu):
             except ValueError:
                 print "you must give integer input"
                 continue
+
+
+class Size:
+    """ Converting from one unit misure to the other """
+    def __init__(self, value, unit = 'B'):
+        self.value = value
+        self.units = ['B', 'K', 'M', 'G']
+        if unit not in self.units:
+            raise ValueError, "unit must be in " + str(self.units)
+        self.unit = unit
+
+    def translate(self, unit):
+        """Returns the rounded translation in a different unit measure"""
+        if unit not in self.units:
+            raise ValueError, "can only choose " + self.units
+        else:
+            offset = self.units.index(self.unit) - self.units.index(unit)
+            return round(self.value * (pow(1024, offset)), 2)
+        
+    def __str__(self):
+        return " ".join([str(self.value), self.unit])
