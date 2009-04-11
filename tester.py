@@ -7,6 +7,8 @@ import sys
 import shelve
 import time
 import ConfigParser
+import subprocess
+
 from glob import glob
 from getopt import getopt
 from copy import deepcopy
@@ -21,7 +23,7 @@ try:
 except ImportError, i:
     print "you will be unable to plot in real time"
     GNUPLOT = False
-    
+
 # global flags
 SIMULATE = False
 VERBOSE = False
@@ -31,12 +33,12 @@ BADHOST = 1
 BADCONF = 2
 
 # template strings parametric constants
-CODENAME_FORMAT = r"\d\w"
 USER_CONFS = "userconfs/%s.ini"
 IPERF_OUT = "iperf_out/iperf_out_%s.txt"
-CONFIGS = "configs/test_%s.ini"
-DUMPS = "analysis/traffic/dump_%s.out"
+CONFIGS = "configs/%s.ini"
+DUMPS = "analysis/traffic/%s"
 RESULTS = "test_result_%s"
+MESSAGE = "media/message.wav"
 
 class TestBattery:
     def __init__(self, username):
@@ -50,12 +52,13 @@ class TestBattery:
         else:
             self.default_conf = Configuration(self.conf_file, codename = "default")
             self.username = username
-            self.user_conf = Configuration(USER_CONFS % self.username)
+            self.user_conf = Configuration(USER_CONFS % self.username, codename = self.username)
             # This default configuration is only used the first time
             self.conf = self.default_conf + self.user_conf
+            self.conf.username = "merged"
             self.auto = set(["iperf"])
             # list of all possible configs stored, better not opening directly here
-            self.test_configs = filter(lambda x: re.search(CODENAME_FORMAT, x), glob(CONFIGS % "*"))
+            self.test_configs = glob(CONFIGS % "*")
             self.battery = []
 
     def _group_auto(self):
@@ -87,6 +90,7 @@ class TestBattery:
                     if opt not in self.conf[sec].keys():
                         print "option %s not found, skipping it" % str(opt)
                     else:
+                        # TODO add a sanity check for consistency checking over the merged conf
                         param = self.conf[sec].conf[opt]
                         if not(param.valid(conf[sec].conf[opt].value)):
                             print "option %s not valid %s \n" % (opt, param.choices())
@@ -110,60 +114,73 @@ class TestBattery:
 
     def load_configs(self):
         for conf in self.test_configs:
-            codename = re.search(CODENAME_FORMAT, conf).group()
+            codename = re.search(r"configs/(.*?).ini", conf).groups()[0]
             self.load_conf(conf, codename)
     
-    def run(self):
-        """Start the tests, after having sorted them"""
-        CONF = "\n\nconfiguration -> \n %s\n"
-            # TODO change the name of this file in relation to user_conf loaded
-        SHOUT = shelve.open(RESULTS % self.username)
-        def sub_run(tests):
-            raw_input("check configuration of parameters before starting the automatic tests, press enter when done \n")
-            i = 0
-            # CHANGED added a very nice control over possible signals
-            while i < len(tests):
-                clear()
-                print CONF % str(tests[i])
-                if SIMULATE:
-                    print "only simulating execution of %s\n\n" % str(tests[i]['iperf'])
-                    # raw_input("press input to see next test")
-                    i += 1
-                else:
-                    # TODO launch the tcpdump command if monitor set
-                    try:
-                        key, val = Tester(tests[i]).run_test()
-                    except KeyboardInterrupt:
-                        a = raw_input("last test canceled, (s)kip or (r)estart or (q)uit the test session")
-                        if a == 'q':
-                            sys.exit(0)
-                        elif a == 's':
-                            i += 1
-                        # not increasing we automatically stay in the same test (default behaviour)
-                    else:
-                        if SHOUT.has_key(key):
-                            a = raw_input("you are overwriting test % s, are you sure (y/n)" % key)
-                            if a == 'y':
-                                print "test %s overwritten " % key
-                                SHOUT[key] = val
-                                SHOUT.sync()
-                        else:
-                            SHOUT[key] = val
-                        i += 1
-        
+    def summary(self):
+        """Prints the summary of the tests that we will execute"""
+        # FIXME two calls to _group_auto not necessary
         groups = self._group_auto()
-        if not groups:
-            print "no configurations loaded, quitting"
-            sys.exit(BADCONF)
+        for i in range(len(groups)):
+            print "GROUP NUMBER %d:\n" % i
+            for j in range(len(groups[i])):
+                print "test %d:\n%s" % (j, str(groups[i][j]))
+            print "\n"
 
-        first = groups[0]
-        print CONF % first[0]
-        sub_run(first)
-        for i in range(1, len(groups)):
-            # print CONF % (groups[i][0] - groups[i-1][0])
-            sub_run(groups[i])
-        SHOUT.close()
-    
+    def run(self):
+        self.summary()
+        groups = self._group_auto()
+        if not(groups):
+            print "no configuration loaded, quitting"
+            sys.exit(BADCONF)
+        else:
+            self.out = shelve.open(RESULTS % self.username)
+            for battery in groups:
+                print "\n\n"
+                print str(battery[0])
+                if SIMULATE:
+                    print "only simulating execution of %s" % str(battery[0]['iperf'])
+                else:
+                    raw_input("check configuration of parameters before starting the automatic tests, press enter when done: \n")
+                    self.run_battery(battery)
+                    # play(MESSAGE)
+            self.out.close()
+
+    def run_battery(self, battery):
+        """Start the tests, after having sorted them"""
+        i = 0
+        while i < len(battery):
+            # CHANGED not clearing because on xterm deletes the "history"
+            # clear() 
+            print str(battery[i])
+            # CHANGED added a very nice control over possible signals
+            name = "dump_" + battery[i].codename
+            ssh = battery[i]["monitor"]["ssh"] % ("-c 1000 -w %s" % name)
+            scp = battery[i]["monitor"]["scp"] % (name, DUMPS % name)
+            # no waiting
+            subprocess.Popen(ssh, shell=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+            try:
+                key, val = Tester(battery[i]).run_test()
+            except KeyboardInterrupt:
+                a = raw_input("last test canceled, (s)kip or (r)estart or (q)uit the test session:\n")
+                if a == 'q':
+                    sys.exit(0)
+                elif a == 's':
+                    i += 1
+                # not increasing we automatically stay in the same test (default behaviour)
+            else:
+                # retrieving the dumped file, check if pid has finished
+                subprocess.Popen(scp, shell=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+                if self.out.has_key(key):
+                    a = raw_input("you are overwriting test % s, are you sure (y/n):\n" % key)
+                    if a == 'y':
+                        print "test %s overwritten " % key
+                        self.out[key] = val
+                        self.out.sync()
+                else:
+                    self.out[key] = val
+                i += 1
+        
     def batch(self):
         self.load_configs()
         self.run()
@@ -191,20 +208,20 @@ class Plotter:
         """Add another data set"""
         # always keeping last maxGraphs elements in the item list and redraw them
         self.last = data
-        new = Gnuplot.Data(data, title = name, with = "linespoint")
+        new = Gnuplot.Data(data, title = name)
         self.items = self.items[ -self.maxGraphs + 1 : ] + [new]
 
     def plot(self):
         """docstring for plot"""
         self.plotter.plot(*self.items)
     
-    def update(self, data):
-        """Adds data to the last data set"""
-        # FIXME doesn't have to redraw everything every time
-        self.last += data
-        new = Gnuplot.Data(self.last, with = "linespoint", title = self.items[-1].get_option("title"))
-        self.items[-1] = new
-        self.plot()
+    # def update(self, data):
+    #     """Adds data to the last data set"""
+    #     # FIXME doesn't have to redraw everything every time
+    #     self.last += data
+    #     new = Gnuplot.Data(self.last, title = self.items[-1].get_option("title"))
+    #     self.items[-1] = new
+    #     self.plot()
     
 # ==========================
 # = Configuration analysis =
@@ -229,7 +246,6 @@ class Tester:
         """Runs the test num_tests time and save the results"""
         cmd = str(self.conf['iperf'])
         self.test_conf["start"] = self.get_time()
-        # TODO insert a test to verify if the host is responding
         print "\t TEST %s:\n" % self.conf.codename
         print "executing %s" % cmd
         print "also writing output to %s" % self.iperf_out_file
