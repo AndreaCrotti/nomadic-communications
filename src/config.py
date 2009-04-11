@@ -27,9 +27,6 @@ class Cnf:
     def __repr__(self):
         return str(self)
 
-    def __iter__(self):
-        return self.conf.iterkeys()
-
     # FIXME enough consistent?
     def __getitem__(self, idx):
         return self.conf[idx]
@@ -39,6 +36,9 @@ class Cnf:
 
     def __ne__(self, other):
         return not(self == other)
+
+    def __iter__(self):
+        return self.conf.iterkeys()
 
     # TODO adding a check to see if null value in the second?
     def __add__(self, other):
@@ -119,8 +119,7 @@ class IperfConf(Cnf):
 class ApConf(Cnf):
     def __init__(self, conf):
         self.raw_conf = conf
-        par = ["mode", "speed", "rts_threshold", "frag_threshold", "ip", "ssid",
-                "channel", "comment", "firmware", "model"]
+        par = ["mode", "speed", "ip", "ssid", "channel", "comment", "firmware", "model"]
         # FIXME not really beatiful
         self.options = dict(zip(par, par))
         self.show_opt = ["mode", "speed", "rts_threshold", "frag_threshold"]
@@ -129,7 +128,7 @@ class ApConf(Cnf):
 class ClientConf(Cnf):
     def __init__(self, conf):
         self.raw_conf = conf
-        par = ["speed", "brand", "rts_threshold", "frag_threshold", "model", "driver"]
+        par = ["brand", "rts_threshold", "frag_threshold", "model", "driver"]
         self.options = dict(zip(par, par))
         self.show_opt = ["speed", "rts_threshold", "frag_threshold"]
         Cnf.__init__(self, "client")
@@ -147,7 +146,13 @@ class MonitorConf(Cnf):
             self.scp = " ".join(["scp", self.conf['host'].value + ":%s "]) + "%s"
         
     def __str__(self):
-        return "\n".join([self.ssh % ("options"), self.scp % ("remote", "local")])
+        return ";\t".join([self.ssh % ("options"), self.scp % ("remote", "local")])
+    
+    def __getitem__(self, idx):
+        if idx in ("ssh", "scp"):
+            return getattr(self, idx)
+        else:
+            return Cnf.__getitem__(self, idx)
         
 class GnuplotConf(Cnf):
     def __init__(self, conf):
@@ -223,7 +228,7 @@ class Configuration:
                 merged.conf[key] = other.conf[key]
         merged.codename = other.codename
         return merged
-
+        
     def __iter__(self):
         return self.conf.iterkeys()
 
@@ -245,43 +250,32 @@ class Configuration:
     def keys(self):
         return self.conf.iterkeys()
                     
-    # FIXME code too convoluted, clean it
     def from_ini(self, conf_file):
-        """Takes a configuration from ini"""
+        """Creates a configuration reading the ini file passed"""
         self.reader.readfp(conf_file)
+        tmpconf = {}
         for sec in self.reader.sections():
-            tmpconf = {}
+            tmpconf[sec] = {}
             for opt in self.reader.options(sec):
                 val = self.reader.get(sec, opt)
-                if re.search(r"\S", val):       # CHANGED only getting non null values \S is not blank
+                # adding only non null values
+                if re.search(r"\S", val):
                     if val.find(',') >= 0:
-                        tmpconf[opt] = val.replace(' ', '').split(',')
-                    # if a wider range is given
+                        tmpconf[sec][opt] = val.replace(' ', '').split(',')
+
                     elif val.find('..') >= 0:
-                        try:
-                            st = val.split('..')
-                            start, end = int(st[0]), int(st[1])
-                        except ValueError:
-                            print "a range must be of integers"
-                        else:
-                            if start >= end:
-                                print "nonsense range, fix it"
-                            else:
-                                tmpconf[opt] = range(start, end+1)
+                        st = val.split('..')
+                        tmpconf[sec][opt] = map(str, range(int(st[0]), int(st[1])+1))
+                    
                     else:
-                        tmpconf[opt] = val
-            try:
-                self.conf[sec] = opt_conf[sec](tmpconf)
-            except KeyError:
-                print "section %s not existing, skipping it" % sec
+                        tmpconf[sec][opt] = val
+
+            if opt_conf.has_key(sec):
+                self.conf[sec] = opt_conf[sec](tmpconf[sec])
+            else:
+                print "skipping section %s" % sec
+        # FIXME not nice to close here the file
         conf_file.close()
-        
+
     def to_ini(self, ini_file):
         self._write_conf(ini_file)
-        
-    def show(self):
-        head = "#*** test %s ***" % self.codename
-        tail = "#--- end test %s ---\n\n" % self.codename
-        print head.center(40)
-        self.to_ini(sys.stdout)
-        print tail.center(40)

@@ -2,26 +2,8 @@
 # encoding: utf-8
 
 import re
+from utils import Size
 
-class Size:
-    """ Converting from one unit misure to the other """
-    def __init__(self, value, unit = 'B'):
-        self.value = value
-        self.units = ['B', 'K', 'M', 'G']
-        if unit not in self.units:
-            raise ValueError, "unit must be in " + str(self.units)
-        self.unit = unit
-
-    def translate(self, unit):
-        """Returns the rounded translation in a different unit measure"""
-        if unit not in self.units:
-            raise ValueError, "can only choose " + self.units
-        else:
-            offset = self.units.index(self.unit) - self.units.index(unit)
-            return round(self.value * (pow(1024, offset)), 2)
-        
-    def __str__(self):
-        return " ".join([str(self.value), self.unit])
     
 # ==========================================
 # = Handling iperf output in various forms =

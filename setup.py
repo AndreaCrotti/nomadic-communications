@@ -9,10 +9,5 @@ setup(
     url = "http://github.com/AndreaCrotti/nomadic-communications/",
     py_modules = ['parse_iperf', 'test/test', 'tester', 'analysis/analyze'],
     license = "gpl",
-    data_files = [
-                    ('analysis/graphs', '*'),
-                    ('analysis/traffic', '*'),
-                    ('iperf_out', '*'),
-                    ('configs', '*')
-                ]
+    # TODO adding classifiers to create the egg and put it on pypi
 )

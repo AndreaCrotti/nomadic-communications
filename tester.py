@@ -36,7 +36,7 @@ BADCONF = 2
 USER_CONFS = "userconfs/%s.ini"
 IPERF_OUT = "iperf_out/iperf_out_%s.txt"
 CONFIGS = "configs/%s.ini"
-DUMPS = "analysis/traffic/%s"
+DUMPS = "analysis/traffic/%s.out"
 RESULTS = "test_result_%s"
 MESSAGE = "media/message.wav"
 
@@ -124,6 +124,7 @@ class TestBattery:
         for i in range(len(groups)):
             print "GROUP NUMBER %d:\n" % i
             for j in range(len(groups[i])):
+                print "\t\tTEST %s" % groups[i][j].codename
                 print "test %d:\n%s" % (j, str(groups[i][j]))
             print "\n"
 
@@ -140,6 +141,7 @@ class TestBattery:
                 print str(battery[0])
                 if SIMULATE:
                     print "only simulating execution of %s" % str(battery[0]['iperf'])
+                    raw_input("see next configuration:\n")
                 else:
                     raw_input("check configuration of parameters before starting the automatic tests, press enter when done: \n")
                     self.run_battery(battery)
@@ -148,6 +150,15 @@ class TestBattery:
 
     def run_battery(self, battery):
         """Start the tests, after having sorted them"""
+        try:
+            ssh = battery[i]["monitor"]["ssh"] % ("-c 1000 -w %s" % name)
+            scp = battery[i]["monitor"]["scp"] % (name, DUMPS % name)
+        except Exception:
+            print "not able to automatically set the monitor, do it manually"
+            autossh = False
+        else:
+            autossh = True
+        
         i = 0
         while i < len(battery):
             # CHANGED not clearing because on xterm deletes the "history"
@@ -155,10 +166,9 @@ class TestBattery:
             print str(battery[i])
             # CHANGED added a very nice control over possible signals
             name = "dump_" + battery[i].codename
-            ssh = battery[i]["monitor"]["ssh"] % ("-c 1000 -w %s" % name)
-            scp = battery[i]["monitor"]["scp"] % (name, DUMPS % name)
             # no waiting
-            subprocess.Popen(ssh, shell=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+            if autossh:
+                subprocess.Popen(ssh, shell=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
             try:
                 key, val = Tester(battery[i]).run_test()
             except KeyboardInterrupt:
@@ -169,8 +179,9 @@ class TestBattery:
                     i += 1
                 # not increasing we automatically stay in the same test (default behaviour)
             else:
-                # retrieving the dumped file, check if pid has finished
-                subprocess.Popen(scp, shell=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+                # retrieving the dumped file, TODO how to see that it finished?
+                if autossh:
+                    subprocess.Popen(scp, shell=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
                 if self.out.has_key(key):
                     a = raw_input("you are overwriting test % s, are you sure (y/n):\n" % key)
                     if a == 'y':
