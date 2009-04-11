@@ -82,6 +82,9 @@ class ParamOpt(Opt):
         self.val_list = val_list
         Opt.__init__(self, name, value)
 
+    def __iter__(self):
+        return iter(self.val_list)
+
     def valid(self, value):
         return value in self.val_list
     
