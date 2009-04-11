@@ -2,7 +2,8 @@ import re
 import sys
 import ConfigParser
 from copy import deepcopy
-from parse_iperf import *
+# TODO must take off this
+from opts import *
 from tester import *
 
 class Cnf:
@@ -144,6 +145,14 @@ class MonitorConf(Cnf):
         
     def __str__(self):
         return "\n".join([self.ssh % ("options"), self.scp % ("remote", "local")])
+        
+class GnuplotConf(Cnf):
+    def __init__(self, conf):
+        """Handling gnuplot configuration"""
+        self.raw_conf = conf
+        par = ["style", "lineswidth"]
+        self.options = dict(zip(par, par))
+        Cnf.__init__(self, "gnuplot")
 
 
 # CHANGED I had to pull opt_conf outside to let shelve pickle work
@@ -151,7 +160,8 @@ opt_conf = {
     "iperf" : lambda x: IperfConf(x),
     "ap"    : lambda x: ApConf(x),
     "client": lambda x: ClientConf(x),
-    "monitor": lambda x: MonitorConf(x)
+    "monitor": lambda x: MonitorConf(x),
+    "gnuplot": lambda x: GnuplotConf(x)
 }
 
 class Configuration:
@@ -239,6 +249,18 @@ class Configuration:
                 if re.search(r"\S", val):       # CHANGED only getting non null values \S is not blank
                     if val.find(',') >= 0:
                         tmpconf[opt] = val.replace(' ', '').split(',')
+                    # if a wider range is given
+                    elif val.find('..') >= 0:
+                        try:
+                            st = val.split('..')
+                            start, end = int(st[0]), int(st[1])
+                        except ValueError:
+                            print "a range must be of integers"
+                        else:
+                            if start >= end:
+                                print "nonsense range"
+                            else:
+                                tmpconf[opt] = range(start, end)
                     else:
                         tmpconf[opt] = val
             try:
