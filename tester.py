@@ -164,7 +164,8 @@ class TestBattery:
             os.mkdir(self.root)
         except OSError:
             print "%s Already existing moving old result folder" % self.root
-            shutil.rmtree(self.root + ".old")
+            if os.path.exists(self.root + ".old"):
+                shutil.rmtree(self.root + ".old")
             shutil.move(self.root, self.root + ".old")
             os.mkdir(self.root)
         for sub in PATH_DIC["sub"].iterkeys():
