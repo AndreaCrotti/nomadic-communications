@@ -142,14 +142,15 @@ class MonitorConf(Cnf):
         self.scp = None
         Cnf.__init__(self, "monitor")
         if self.conf['host'] and self.conf['interface']:
-            self.ssh = " ".join(["ssh", self.conf['host'].value,  "tcpdump -i", self.conf['interface'].value]) + " %s"
-            self.scp = " ".join(["scp", self.conf['host'].value + ":%s "]) + "%s"
+            self.ssh = " ".join(["ssh", self.conf['host'].value,  "tcpdump -i", self.conf['interface'].value, "-c 1000 -w out"])
+            self.scp = " ".join(["scp", self.conf['host'].value + ":out", "out"])
         
     def __str__(self):
-        return ";\t".join([self.ssh % ("options"), self.scp % ("remote", "local")])
+        return ";\t".join([self.ssh, self.scp])
     
     def __getitem__(self, idx):
-        if idx in ("ssh", "scp"):
+        # FIXME sure it's a good idea?
+        if idx in ("ssh", "scp"): 
             return getattr(self, idx)
         else:
             return Cnf.__getitem__(self, idx)
