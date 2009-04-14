@@ -34,11 +34,25 @@ BADCONF = 2
 
 # template strings parametric constants
 USER_CONFS = "userconfs/%s.ini"
-IPERF_OUT = "iperf_out/iperf_out_%s.txt"
 CONFIGS = "configs/%s.ini"
-DUMPS = "analysis/traffic/%s.out"
 RESULTS = "test_result_%s"
 MESSAGE = "media/message.wav"
+
+PATH_DIC = {
+    "root"      : "results_%(user)s",
+    "sub": {
+        "confs"     : "%(code)s.ini",
+        "full_conf" : "full_%(code)s.ini",
+        "dump"      : "dump_%(code)s.out",
+        "iperf"     : "iperf_out_%(code)s.txt"
+    }
+}
+
+def get_path(vars, v):
+    if v == "root":
+        return PATH_DIC[v] % vars
+    else:
+        return os.path.join(PATH_DIC["root"], PATH_DIC[v]) % vars
 
 class TestBattery:
     def __init__(self, username):
@@ -48,18 +62,21 @@ class TestBattery:
         except IOError:
             print "unable to found default configuration, quitting"
             sys.exit(BADCONF)
-        
-        else:
-            self.default_conf = Configuration(self.conf_file, codename = "default")
-            self.username = username
-            self.user_conf = Configuration(USER_CONFS % self.username, codename = self.username)
-            # This default configuration is only used the first time
-            self.conf = self.default_conf + self.user_conf
-            self.conf.username = "merged"
-            self.auto = set(["iperf"])
-            # list of all possible configs stored, better not opening directly here
-            self.test_configs = glob(CONFIGS % "*")
-            self.battery = []
+
+        self.default_conf = Configuration(self.conf_file, codename = "default")
+        self.username = username
+        self.user_conf = Configuration(USER_CONFS % self.username, codename = self.username)
+        # This default configuration is only used the first time FIXME not nice
+        self.conf = self.default_conf + self.user_conf
+        self.conf.username = "merged"
+        # set of automatically maneageble settings
+        self.auto = set(["iperf"])
+        # list of all possible configs stored, not opening directly here
+        self.test_configs = glob(CONFIGS % "*")
+        self.battery = []
+        # dictionary containing absolute paths for the results
+        self.analyzer = IperfOutPlain()
+        self.paths = {}
 
     def _group_auto(self):
         """Groups configuration in a way such that intervent is minumum"""
@@ -104,7 +121,7 @@ class TestBattery:
         cnf = Configuration(conf_file, codename)
         if self.is_consistent(cnf):
             merged = self.conf + cnf
-            if merged in self.battery:
+            if merged in self.battery:      # this works only if == defined correctly
                 print "you have already loaded the configuration in %s, not adding" % conf_file
             else:
                 print "adding configuration in %s" % conf_file
@@ -128,49 +145,48 @@ class TestBattery:
                 print "test %d:\n%s" % (j, str(groups[i][j]))
             print "\n"
 
+    def make_tree(self):
+        """Creates the basic emtpy tree"""
+        self.root = PATH_DIC["root"] % {"user" : self.username}
+        try:
+            os.mkdir(self.root)
+        except OSError:
+            print "%s Already existing moving old result folder" % self.root
+            os.rename(self.root, self.root + ".old")
+            os.mkdir(self.root)
+        for sub in PATH_DIC["sub"].iterkeys():
+            path = os.path.join(self.root, sub)
+            os.mkdir(path)
+            self.paths[sub] = os.path.join(path, PATH_DIC["sub"][sub])
+
     def run(self):
+        self.make_tree()
         self.summary()
         groups = self._group_auto()
         if not(groups):
             print "no configuration loaded, quitting"
             sys.exit(BADCONF)
         else:
-            self.out = shelve.open(RESULTS % self.username)
             for battery in groups:
                 print "\n\n"
-                print str(battery[0])
                 if SIMULATE:
                     print "only simulating execution of %s" % str(battery[0]['iperf'])
                     raw_input("see next configuration:\n")
                 else:
-                    raw_input("check configuration of parameters before starting the automatic tests, press enter when done: \n")
                     self.run_battery(battery)
                     # play(MESSAGE)
-            self.out.close()
 
     def run_battery(self, battery):
-        """Start the tests, after having sorted them"""
-        try:
-            ssh = battery[i]["monitor"]["ssh"] % ("-c 1000 -w %s" % name)
-            scp = battery[i]["monitor"]["scp"] % (name, DUMPS % name)
-        except Exception:
-            print "not able to automatically set the monitor, do it manually"
-            autossh = False
-        else:
-            autossh = True
-        
+        """Running a test battery, catching KeyboardInterrupts in the middle"""
+        print str(battery[0])
+        raw_input("starting test battery, check non automatic parameters:\n")
         i = 0
-        while i < len(battery):
+        while i < len(battery): 
             # CHANGED not clearing because on xterm deletes the "history"
-            # clear() 
-            print str(battery[i])
+            # clear()
             # CHANGED added a very nice control over possible signals
-            name = "dump_" + battery[i].codename
-            # no waiting
-            if autossh:
-                subprocess.Popen(ssh, shell=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
             try:
-                key, val = Tester(battery[i]).run_test()
+                self.run_test(battery[i])
             except KeyboardInterrupt:
                 a = raw_input("last test canceled, (s)kip or (r)estart or (q)uit the test session:\n")
                 if a == 'q':
@@ -179,19 +195,32 @@ class TestBattery:
                     i += 1
                 # not increasing we automatically stay in the same test (default behaviour)
             else:
-                # retrieving the dumped file, TODO how to see that it finished?
-                if autossh:
-                    subprocess.Popen(scp, shell=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-                if self.out.has_key(key):
-                    a = raw_input("you are overwriting test % s, are you sure (y/n):\n" % key)
-                    if a == 'y':
-                        print "test %s overwritten " % key
-                        self.out[key] = val
-                        self.out.sync()
-                else:
-                    self.out[key] = val
                 i += 1
+
+    def run_test(self, test):
+        """Running one single test"""
+        d = dict(code=test.codename)
+        iperf_out = open(self.paths["iperf"] % d, 'w')
+        print "\t TEST %s:\n" % test.codename
+        print str(test)
+        cmd = str(test['iperf'])
+        # running the command
+        proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if re.search("did not receive ack", proc.stderr.read()):
+            print "host %s not responding, quitting the test" % self.conf['iperf']['host']
+            sys.exit(BADHOST)
+
+        print "running %s, also writing to %s" % (cmd, iperf_out.name)
+        for line in proc.stdout.xreadlines():
+            self.analyzer.parse_line(line)
+            iperf_out.write(line)
+        iperf_out.close()
         
+        if GNUPLOT:
+            plotter = Plotter("testing", "kbs")
+            plotter.add_data(self.analyzer.result['values'], test.codename)
+            plotter.plot()
+    
     def batch(self):
         self.load_configs()
         self.run()
@@ -234,56 +263,6 @@ class Plotter:
     #     self.items[-1] = new
     #     self.plot()
     
-# ==========================
-# = Configuration analysis =
-# ==========================
-class Tester:
-    def __init__(self, conf):
-        """Class which encapsulates other informations about the test and run it"""
-        self.conf = conf
-        self.analyzer = IperfOutPlain()
-        self.get_time = lambda: time.strftime("%d-%m-%y_%H:%M", time.localtime())
-        self.iperf_out_file = IPERF_OUT % self.conf.codename
-        # The None values are surely rewritten before written to shelve dictionary
-        self.test_conf = {
-            "platform"  : os.uname(),
-            "conf"      : self.conf,
-            "start"     : None,
-            "end"       : None,
-            "result"    : None
-        }
-    
-    def run_test(self):
-        """Runs the test num_tests time and save the results"""
-        cmd = str(self.conf['iperf'])
-        self.test_conf["start"] = self.get_time()
-        print "\t TEST %s:\n" % self.conf.codename
-        print "executing %s" % cmd
-        print "also writing output to %s" % self.iperf_out_file
-        _, w, e = os.popen3(cmd)
-        # with this line we check if the host is responding or not
-        if re.search("did not receive ack", e.read()):
-            print "host %s not responding, quitting the test" % self.conf['iperf']['host']
-            sys.exit(BADHOST)
-        
-        out_file = open(self.iperf_out_file, 'w')
-        for line in w.readlines():
-            out_file.write(line)      # writing iperf output also to file (to double check results)
-            self.analyzer.parse_line(line)
-        out_file.close()
-
-        self.test_conf["end"] = self.get_time()
-        self.test_conf["result"] = self.analyzer.result
-        # =========================================================================
-        # = IMPORTANT, if given twice the same conf it overwrites the old results =
-        # =========================================================================
-        
-        if GNUPLOT:
-            self.plotter = Plotter("testing", "kbs")
-            self.plotter.add_data(self.test_conf["result"]["values"], self.conf.codename)
-            self.plotter.plot()
-
-        return self.conf.codename, self.test_conf
 
 def usage():
     print """
@@ -317,7 +296,7 @@ if __name__ == '__main__':
             t = TestBattery(name)
             if args[1:]:
                 for conf_file in args[1:]:  # all the others could be conf
-                    t.load_conf(conf_file, "abc")
+                    t.load_conf(conf_file, conf_file.split(".")[0].split("/")[1])
                     t.run()
             else:
                 t.batch()
