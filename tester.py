@@ -8,6 +8,7 @@ import shelve
 import time
 import ConfigParser
 import subprocess
+import shutil
 
 from glob import glob
 from getopt import getopt
@@ -41,12 +42,16 @@ MESSAGE = "media/message.wav"
 PATH_DIC = {
     "root"      : "results_%(user)s",
     "sub": {
-        "confs"     : "%(code)s.ini",
         "full_conf" : "full_%(code)s.ini",
         "dump"      : "dump_%(code)s.out",
         "iperf"     : "iperf_out_%(code)s.txt"
     }
 }
+
+def banner(text, sym="*"):
+    start = sym * 40
+    end = start
+    print "\n".join(map(lambda x: x.center(50), [start, text, end]))
 
 def get_path(vars, v):
     if v == "root":
@@ -66,6 +71,13 @@ class TestBattery:
         self.default_conf = Configuration(self.conf_file, codename = "default")
         self.username = username
         self.user_conf = Configuration(USER_CONFS % self.username, codename = self.username)
+        self.ssh, self.scp = None, None
+        # monitoring informations must stay in user_conf
+        try:
+            self.ssh = self.user_conf["monitor"]["ssh"]
+            self.scp = self.user_conf["monitor"]["scp"]
+        except KeyError:
+            print "unable to automatically start the monitor node, do it manually"
         # This default configuration is only used the first time FIXME not nice
         self.conf = self.default_conf + self.user_conf
         self.conf.username = "merged"
@@ -152,7 +164,8 @@ class TestBattery:
             os.mkdir(self.root)
         except OSError:
             print "%s Already existing moving old result folder" % self.root
-            os.rename(self.root, self.root + ".old")
+            shutil.rmtree(self.root + ".old")
+            shutil.move(self.root, self.root + ".old")
             os.mkdir(self.root)
         for sub in PATH_DIC["sub"].iterkeys():
             path = os.path.join(self.root, sub)
@@ -173,6 +186,8 @@ class TestBattery:
                     print "only simulating execution of %s" % str(battery[0]['iperf'])
                     raw_input("see next configuration:\n")
                 else:
+                    
+                    banner("STARTING BATTERY")
                     self.run_battery(battery)
                     # play(MESSAGE)
 
@@ -181,7 +196,7 @@ class TestBattery:
         print str(battery[0])
         raw_input("starting test battery, check non automatic parameters:\n")
         i = 0
-        while i < len(battery): 
+        while i < len(battery):
             # CHANGED not clearing because on xterm deletes the "history"
             # clear()
             # CHANGED added a very nice control over possible signals
@@ -201,20 +216,29 @@ class TestBattery:
         """Running one single test"""
         d = dict(code=test.codename)
         iperf_out = open(self.paths["iperf"] % d, 'w')
-        print "\t TEST %s:\n" % test.codename
+        # saving full configuration
+        test.to_ini(open(self.paths["full_conf"] % d, 'w'))
+        banner("TEST %s:\n" % test.codename, sym="=")
         print str(test)
         cmd = str(test['iperf'])
+        if self.ssh:
+            subprocess.Popen(self.ssh, shell=True, stdout=subprocess.PIPE)
         # running the command
+        print "running %s, also writing to %s" % (cmd, iperf_out.name)
         proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if re.search("did not receive ack", proc.stderr.read()):
             print "host %s not responding, quitting the test" % self.conf['iperf']['host']
             sys.exit(BADHOST)
 
-        print "running %s, also writing to %s" % (cmd, iperf_out.name)
         for line in proc.stdout.xreadlines():
             self.analyzer.parse_line(line)
             iperf_out.write(line)
         iperf_out.close()
+        
+        if self.scp:
+            # leaving stderr to stdout for debugging purposes
+            subprocess.Popen(self.scp, shell=True, stdout=subprocess.PIPE).wait()
+            shutil.move("out", self.paths["dump"] % d)
         
         if GNUPLOT:
             plotter = Plotter("testing", "kbs")
