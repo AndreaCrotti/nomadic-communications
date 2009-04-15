@@ -36,28 +36,22 @@ BADCONF = 2
 # template strings parametric constants
 USER_CONFS = "userconfs/%s.ini"
 CONFIGS = "configs/%s.ini"
-RESULTS = "test_result_%s"
 MESSAGE = "media/message.wav"
 
-PATH_DIC = {
-    "root"      : "results_%(user)s",
-    "sub": {
-        "full_conf" : "full_%(code)s.ini",
-        "dump"      : "dump_%(code)s.out",
-        "iperf"     : "iperf_out_%(code)s.txt"
-    }
+ROOT = "results_%s"
+RESULTS = {
+    "full_conf" : "full_%s.ini",
+    "dump"      : "dump_%s.out",
+    "iperf"     : "iperf_out_%s.txt"
 }
 
-def banner(text, sym="*"):
-    start = sym * 40
-    end = start
-    print "\n".join(map(lambda x: x.center(50), [start, text, end]))
+def get_res(root, code):
+    paths = [ os.path.join(root, k, val % code) for k, val in RESULTS.iteritems() ]
+    return dict(zip(RESULTS.keys(), paths))
 
-def get_path(vars, v):
-    if v == "root":
-        return PATH_DIC[v] % vars
-    else:
-        return os.path.join(PATH_DIC["root"], PATH_DIC[v]) % vars
+def banner(text, sym="*"):
+    start = end = sym * 40
+    print "\n".join(map(lambda x: x.center(50), [start, text, end]))
 
 class TestBattery:
     def __init__(self, username):
@@ -71,14 +65,11 @@ class TestBattery:
         self.default_conf = Configuration(self.conf_file, codename = "default")
         self.username = username
         self.user_conf = Configuration(USER_CONFS % self.username, codename = self.username)
-        self.ssh, self.scp = None, None
-        # monitoring informations must stay in user_conf
-        try:
+        self.monitor = False
+        if self.user_conf["monitor"]["ssh"]:
             self.ssh = self.user_conf["monitor"]["ssh"]
-            self.scp = self.user_conf["monitor"]["scp"]
-        except KeyError:
-            print "unable to automatically start the monitor node, do it manually"
-        # This default configuration is only used the first time FIXME not nice
+            self.monitor = True
+        # monitoring informations must stay in user_conf
         self.conf = self.default_conf + self.user_conf
         self.conf.username = "merged"
         # set of automatically maneageble settings
@@ -159,7 +150,7 @@ class TestBattery:
 
     def make_tree(self):
         """Creates the basic emtpy tree"""
-        self.root = PATH_DIC["root"] % {"user" : self.username}
+        self.root = ROOT % self.username
         try:
             os.mkdir(self.root)
         except OSError:
@@ -168,10 +159,10 @@ class TestBattery:
                 shutil.rmtree(self.root + ".old")
             shutil.move(self.root, self.root + ".old")
             os.mkdir(self.root)
-        for sub in PATH_DIC["sub"].iterkeys():
-            path = os.path.join(self.root, sub)
+        for subdir in RESULTS.iterkeys():
+            path = os.path.join(self.root, subdir)
+            print "making %s" % path
             os.mkdir(path)
-            self.paths[sub] = os.path.join(path, PATH_DIC["sub"][sub])
 
     def run(self):
         self.make_tree()
@@ -214,17 +205,21 @@ class TestBattery:
                 i += 1
 
     def run_test(self, test):
-        """Running one single test"""
-        d = dict(code=test.codename)
-        iperf_out = open(self.paths["iperf"] % d, 'w')
+        """
+        Running one single test, plotting the results if gnuplot availble
+        and saving the results in a directory structure
+        """
+        res_dict = get_res(self.root, test.codename)
+        # FIXME not really nice dictionary, using globals instead
+        iperf_out = open(res_dict["iperf"], 'w')
         # saving full configuration
-        test.to_ini(open(self.paths["full_conf"] % d, 'w'))
+        test.to_ini(open(res_dict["full_conf"], 'w'))
         banner("TEST %s:\n" % test.codename, sym="=")
-        print str(test)
+        print test
         cmd = str(test['iperf'])
-        if self.ssh:
-            subprocess.Popen(self.ssh, shell=True, stdout=subprocess.PIPE)
-        # running the command
+        # automatically writes the output to the right place, kind of magic of subprocess
+        if self.monitor:
+            subprocess.Popen(self.ssh % res_dict["dump"], shell=True, stdout=subprocess.PIPE)
         print "running %s, also writing to %s" % (cmd, iperf_out.name)
         proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if re.search("did not receive ack", proc.stderr.read()):
@@ -235,12 +230,7 @@ class TestBattery:
             self.analyzer.parse_line(line)
             iperf_out.write(line)
         iperf_out.close()
-        
-        if self.scp:
-            # leaving stderr to stdout for debugging purposes
-            subprocess.Popen(self.scp, shell=True, stdout=subprocess.PIPE).wait()
-            shutil.move("out", self.paths["dump"] % d)
-        
+
         if GNUPLOT:
             plotter = Plotter("testing", "kbs")
             plotter.add_data(self.analyzer.result['values'], test.codename)
