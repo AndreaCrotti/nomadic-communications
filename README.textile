@@ -2,7 +2,18 @@ h1. DESCRIPTION
 
 This project is about testing network performances with different wireless devices and configurations.
 
-Results are then statistically analyzed and there will be 2 relations (in latex) explaining the results.
+Results are then statistically analyzed and there will be 2 relations (written in latex) explaining the results.
+
+The main __idea__ behind the program is the concept of configuration, which is basically an __ini__ file containing different sections and values for each of them.
+Values can
+* lists (speed = 1M, 2M)
+* constants (host = server)
+* ranges (rts_threshold = 256..1000)
+
+Configurations are kind of complex dictionaries built parsing the __ini__ files where a basic arithmetic is defined.
+You can merge them together (+) or get their difference (-) obtaining new configurations (both or them are NOT commutative).
+
+The program first imports the default configuration, which contains all the possible values that I may set, then a user defined configuration.
 
 h1. USAGE
 
