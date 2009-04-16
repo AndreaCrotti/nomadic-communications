@@ -151,13 +151,14 @@ class TestBattery:
     def make_tree(self):
         """Creates the basic emtpy tree"""
         self.root = ROOT % self.username
+        old = self.root + ".old"
         try:
             os.mkdir(self.root)
         except OSError:
             print "%s Already existing moving old result folder" % self.root
-            if os.path.exists(self.root + ".old"):
-                shutil.rmtree(self.root + ".old")
-            shutil.move(self.root, self.root + ".old")
+            if os.path.exists(old):
+                shutil.rmtree(old)
+            shutil.move(self.root, old)
             os.mkdir(self.root)
         for subdir in RESULTS.iterkeys():
             path = os.path.join(self.root, subdir)
@@ -174,14 +175,9 @@ class TestBattery:
         else:
             for battery in groups:
                 print "\n\n"
-                if SIMULATE:
-                    print "only simulating execution of %s" % str(battery[0]['iperf'])
-                    raw_input("see next configuration:\n")
-                else:
-                    
-                    banner("STARTING BATTERY")
-                    self.run_battery(battery)
-                    # play(MESSAGE)
+                banner("STARTING BATTERY")
+                self.run_battery(battery)
+                # play(MESSAGE)
 
     def run_battery(self, battery):
         """Running a test battery, catching KeyboardInterrupts in the middle"""
@@ -217,6 +213,10 @@ class TestBattery:
         banner("TEST %s:\n" % test.codename, sym="=")
         print test
         cmd = str(test['iperf'])
+        if SIMULATE:
+            print "only simulating"
+            return
+        
         # automatically writes the output to the right place, kind of magic of subprocess
         if self.monitor:
             subprocess.Popen(self.ssh % res_dict["dump"], shell=True, stdout=subprocess.PIPE)
@@ -242,11 +242,7 @@ class TestBattery:
 
 
 class Plotter:
-    """
-        General plotter of data in array format
-        maxGraphs indicates the maximum number of "functions" to be plotted
-        at the same time
-    """
+    """Class for plotting during testing"""
     def __init__(self, title, value, maxGraphs = 2):
         self.title = title
         self.value = value
@@ -269,14 +265,6 @@ class Plotter:
     def plot(self):
         """docstring for plot"""
         self.plotter.plot(*self.items)
-    
-    # def update(self, data):
-    #     """Adds data to the last data set"""
-    #     # FIXME doesn't have to redraw everything every time
-    #     self.last += data
-    #     new = Gnuplot.Data(self.last, title = self.items[-1].get_option("title"))
-    #     self.items[-1] = new
-    #     self.plot()
     
 
 def usage():
