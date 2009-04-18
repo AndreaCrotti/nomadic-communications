@@ -1,1 +1,1 @@
-__all__ = ["utils", "config", "parse_iperf", "opts"]
+__all__ = ["utils", "config", "parse_iperf", "opts", "vars"]

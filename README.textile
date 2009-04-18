@@ -17,6 +17,8 @@ The program first imports the default configuration, which contains all the poss
 
 h1. USAGE
 
+<!--- TODO insert info about iperf -s -u -->
+
 This program first load the default configuration from __config.ini__ and then all the __*.ini__ files found in the __configs__ folder.
 The configuration are merged and loaded in a big list, which is analyzed and resorted in order to need the minimal human input as possible.
 

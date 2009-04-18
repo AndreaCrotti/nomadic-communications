@@ -17,6 +17,7 @@ from src.parse_iperf import *
 from src.config import *
 from src.utils import *
 from src.opts import *
+from src.vars import *
 
 GNUPLOT = True
 try:
@@ -32,21 +33,6 @@ VERBOSE = False
 # exit codes
 BADHOST = 1
 BADCONF = 2
-
-# template strings parametric constants
-USER_CONFS = "userconfs/%s.ini"
-CONFIGS = "configs/%s.ini"
-MESSAGE = "media/message.wav"
-
-ROOT = "results_%s"
-RESULTS = {
-    "full_conf" : "full_%s.ini",
-    "dump"      : "dump_%s.out",
-    "iperf"     : "iperf_out_%s.txt",
-    "graphs"    : "graph_%s.eps"
-}
-
-COMPLETED = "completed.txt"
 
 def get_res(root, code):
     paths = [ os.path.join(root, k, val % code) for k, val in RESULTS.iteritems() ]
@@ -66,8 +52,7 @@ class TestBattery:
             sys.exit(BADCONF)
 
         self.default_conf = Configuration(self.conf_file, codename = "default")
-        self.username = username
-        self.user_conf = Configuration(USER_CONFS % self.username, codename = self.username)
+        self.user_conf = Configuration(USER_CONFS % self.username, codename = username)
         self.monitor = False
         if self.user_conf["monitor"]["ssh"]:
             self.ssh = self.user_conf["monitor"]["ssh"]
@@ -80,7 +65,7 @@ class TestBattery:
         self.battery = []
         # dictionary containing absolute paths for the results
         self.analyzer = IperfOutPlain()
-        self.root = ROOT % self.username
+        self.root = ROOT % username
 
     def is_consistent(self, conf):
         """Checking if configuration loaded is consistent with default configuration"""
@@ -153,6 +138,7 @@ class TestBattery:
             self.summary()
 
     def run(self):
+        # TODO battery and _group_auto can be reimplemented using itertools.groupby
         i = 0
         while i < len(self.battery):
             if SIMULATE:
@@ -195,8 +181,8 @@ class TestBattery:
             print "host %s not responding, quitting the test" % self.conf['iperf']['host']
             sys.exit(BADHOST)
     
-    # TODO writing results is only outside the test running
     def write_results(self, test):
+        """Finally writes the results of the test in the right directories"""
         res_dict = get_res(self.root, test.codename)
         # saving the dump file
         shutil.move("dump.tmp", res_dict["dump"])
@@ -207,12 +193,14 @@ class TestBattery:
         open(os.path.join(self.root, COMPLETED), 'a').write(test.codename + "\n")
 
     def plot(self, results, codename, filename):
+        """Plots and writes the graph generated to filename"""
         plotter = Plotter("testing", "kbs")
         plotter.add_data(results, codename)
         plotter.plot()
         plotter.save(filename)
 
     def batch(self):
+        """Automatic run of the tests"""
         self.pre_run()
         self.run()
 
@@ -256,9 +244,8 @@ def usage():
 
 
 if __name__ == '__main__':
-    # TODO check input from stdin (fake file better than StringIO)
-    # TODO use optparse instead, much more flexible
-    opts, args = getopt(sys.argv[1:], 'vsh', ['verbose', 'simulate', 'help'])
+    # TODO implementing a test cleaner
+    opts, args = getopt(sys.argv[1:], 'cvsh', ['verbose', 'simulate', 'help', 'clean'])
     for o, a in opts:
         if o in ('-h', '--help'):
             usage()
@@ -278,8 +265,9 @@ if __name__ == '__main__':
             t = TestBattery(name)
             if args[1:]:
                 for conf_file in args[1:]:  # all the others could be conf
+                    # FIXME ugly hardcoding of file path
                     t.load_conf(conf_file, conf_file.split(".")[0].split("/")[1])
-                    t.run()
+                t.run()
             else:
                 t.batch()
     else:

@@ -4,7 +4,6 @@
 import re
 from utils import Size
 
-    
 # ==========================================
 # = Handling iperf output in various forms =
 # ==========================================
@@ -25,7 +24,7 @@ class IperfOutput(object):
         return str(self)
 
     def parse_file(self, filename):
-        "Takes the filename"
+        "Parsing a file, taking as an open 'r' file"
         for line in filename:
             self.parse_line(line)
     
