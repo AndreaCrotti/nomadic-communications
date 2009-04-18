@@ -42,8 +42,11 @@ ROOT = "results_%s"
 RESULTS = {
     "full_conf" : "full_%s.ini",
     "dump"      : "dump_%s.out",
-    "iperf"     : "iperf_out_%s.txt"
+    "iperf"     : "iperf_out_%s.txt",
+    "graphs"    : "graph_%s.eps"
 }
+
+COMPLETED = "completed.txt"
 
 def get_res(root, code):
     paths = [ os.path.join(root, k, val % code) for k, val in RESULTS.iteritems() ]
@@ -72,33 +75,12 @@ class TestBattery:
         # monitoring informations must stay in user_conf
         self.conf = self.default_conf + self.user_conf
         self.conf.username = "merged"
-        # set of automatically maneageble settings
-        self.auto = set(["iperf"])
         # list of all possible configs stored, not opening directly here
         self.test_configs = glob(CONFIGS % "*")
         self.battery = []
         # dictionary containing absolute paths for the results
         self.analyzer = IperfOutPlain()
-        self.paths = {}
-
-    def _group_auto(self):
-        """Groups configuration in a way such that intervent is minumum"""
-        # CHANGED using new - and + overloaded operators
-        def eql(t1, t2):
-            changed = set((t1 - t2).conf.keys())
-            return changed.issubset(self.auto)
-        groups = []
-        for test in self.battery:
-            added = False
-            for i in range(len(groups)):
-                # at position 0 we have the testimonial
-                if eql(test, groups[i][0]):
-                    groups[i].append(test)
-                    added = True
-                    break
-            if not(added):
-                groups.append([test])
-        return groups
+        self.root = ROOT % self.username
 
     def is_consistent(self, conf):
         """Checking if configuration loaded is consistent with default configuration"""
@@ -132,72 +114,60 @@ class TestBattery:
         else:
             print "error in %s, please correct the values" % conf_file
 
-    def load_configs(self):
-        for conf in self.test_configs:
-            codename = re.search(r"configs/(.*?).ini", conf).groups()[0]
+    def load_configs(self, configs = []):
+        name = lambda x: re.search(r"configs/(.*?).ini", x).groups()[0]
+        if not configs:
+            configs = self.test_configs
+        for conf in configs:
+            codename = name(conf)
             self.load_conf(conf, codename)
     
     def summary(self):
         """Prints the summary of the tests that we will execute"""
-        # FIXME two calls to _group_auto not necessary
-        groups = self._group_auto()
-        for i in range(len(groups)):
-            print "GROUP NUMBER %d:\n" % i
-            for j in range(len(groups[i])):
-                print "\t\tTEST %s" % groups[i][j].codename
-                print "test %d:\n%s" % (j, str(groups[i][j]))
+        for i in range(len(self.battery)):
+            banner(str(i) + "):\t" + self.battery[i].codename)
+            print self.battery[i]
             print "\n"
 
-    def make_tree(self):
-        """Creates the basic emtpy tree"""
-        self.root = ROOT % self.username
-        old = self.root + ".old"
-        try:
-            os.mkdir(self.root)
-        except OSError:
-            print "%s Already existing moving old result folder" % self.root
-            if os.path.exists(old):
-                shutil.rmtree(old)
-            shutil.move(self.root, old)
-            os.mkdir(self.root)
-        for subdir in RESULTS.iterkeys():
-            path = os.path.join(self.root, subdir)
-            print "making %s" % path
-            os.mkdir(path)
+    def make_subtree(self, root, dirs):
+        if not os.path.exists(root):
+            os.mkdir(root)
+            for d in dirs:
+                os.mkdir(os.path.join(root, d))
+            # creating a new empty file
+            open(os.path.join(root, COMPLETED), 'w')
+
+    def pre_run(self):
+        self.make_subtree(self.root, RESULTS.iterkeys())
+        compl_file = os.path.join(self.root, COMPLETED)
+        compl = open(compl_file).read().splitlines()
+        diff = list(set(self.test_configs).difference(compl))
+        print "you already completed those tests %s " % str(compl)
+        print "You still have to do %s" % str(diff)
+        # I only load the configs I want to
+        self.load_configs(diff)
 
     def run(self):
-        self.make_tree()
         self.summary()
-        groups = self._group_auto()
-        if not(groups):
-            print "no configuration loaded, quitting"
-            sys.exit(BADCONF)
-        else:
-            for battery in groups:
-                print "\n\n"
-                banner("STARTING BATTERY")
-                self.run_battery(battery)
-                # play(MESSAGE)
-
-    def run_battery(self, battery):
-        """Running a test battery, catching KeyboardInterrupts in the middle"""
-        print str(battery[0])
-        raw_input("starting test battery, check non automatic parameters:\n")
         i = 0
-        while i < len(battery):
-            # CHANGED not clearing because on xterm deletes the "history"
-            # clear()
-            # CHANGED added a very nice control over possible signals
+        while i < len(self.battery):
+            if SIMULATE:
+                print "only simulating %s" % str(self.battery[i])
+                i += 1
+                continue
             try:
-                self.run_test(battery[i])
+                # better handle it here not inside the test itself
+                mon, proc = self.run_test(self.battery[i])
             except KeyboardInterrupt:
                 a = raw_input("last test canceled, (s)kip or (r)estart or (q)uit the test session:\n")
                 if a == 'q':
                     sys.exit(0)
                 elif a == 's':
                     i += 1
-                # not increasing we automatically stay in the same test (default behaviour)
             else:
+                print "writing the results to files"
+                self.write_results(self.battery[i], mon, proc)
+                print "test %s done" % self.battery[i].codename
                 i += 1
 
     def run_test(self, test):
@@ -205,39 +175,41 @@ class TestBattery:
         Running one single test, plotting the results if gnuplot availble
         and saving the results in a directory structure
         """
-        res_dict = get_res(self.root, test.codename)
-        # FIXME not really nice dictionary, using globals instead
-        iperf_out = open(res_dict["iperf"], 'w')
-        # saving full configuration
-        test.to_ini(open(res_dict["full_conf"], 'w'))
         banner("TEST %s:\n" % test.codename, sym="=")
         print test
         cmd = str(test['iperf'])
-        if SIMULATE:
-            print "only simulating"
-            return
-        
         # automatically writes the output to the right place, kind of magic of subprocess
         if self.monitor:
-            subprocess.Popen(self.ssh % res_dict["dump"], shell=True, stdout=subprocess.PIPE)
-        print "running %s, also writing to %s" % (cmd, iperf_out.name)
+            mon = subprocess.Popen(self.ssh, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        else:
+            raw_input("unable to monitor, you have to do it yourself, press a key when ready to sniff")
+        
         proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if re.search("did not receive ack", proc.stderr.read()):
             print "host %s not responding, quitting the test" % self.conf['iperf']['host']
             sys.exit(BADHOST)
-
-        for line in proc.stdout.xreadlines():
-            self.analyzer.parse_line(line)
-            iperf_out.write(line)
-        iperf_out.close()
-
-        if GNUPLOT:
-            plotter = Plotter("testing", "kbs")
-            plotter.add_data(self.analyzer.result['values'], test.codename)
-            plotter.plot()
+        
+        return mon.stdout, proc.stdout
     
+    # TODO writing results is only outside the test running
+    def write_results(self, test, mon, proc):
+        res_dict = get_res(self.root, test.codename)
+        self.analyzer.parse_file(proc)
+        # saving the dump file
+        open(res_dict["dump"],'w').write(mon.read())
+        open(res_dict["iperf"], 'w').write(proc.read())
+        test.to_ini(open(res_dict["full_conf"], 'w'))
+        self.plot(self.analyzer.result['values'], test.codename, res_dict["graphs"])
+        open(os.path.join(self.root, COMPLETED), 'a').write(test.codename)
+
+    def plot(self, results, codename, filename):
+        plotter = Plotter("testing", "kbs")
+        plotter.add_data(results, codename)
+        plotter.plot()
+        plotter.save(filename)
+
     def batch(self):
-        self.load_configs()
+        self.pre_run()
         self.run()
 
 
@@ -248,7 +220,6 @@ class Plotter:
         self.value = value
         self.items = []
         self.last = []
-        self.maxGraphs = maxGraphs
         self.plotter = Gnuplot.Gnuplot(persist = 1)
         self.plotter.set_string("title", title)
         self.plotter.set_range('yrange', (0,"*"))
@@ -260,11 +231,15 @@ class Plotter:
         # always keeping last maxGraphs elements in the item list and redraw them
         self.last = data
         new = Gnuplot.Data(data, title = name)
-        self.items = self.items[ -self.maxGraphs + 1 : ] + [new]
+        self.items.append(new)
 
     def plot(self):
         """docstring for plot"""
         self.plotter.plot(*self.items)
+    
+    def save(self, filename):
+        print "saving graph to %s" % filename
+        self.plotter.hardcopy(filename=filename, eps=True, color=True)
     
 
 def usage():
