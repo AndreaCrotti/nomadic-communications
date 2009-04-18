@@ -126,7 +126,6 @@ class TestBattery:
         """Prints the summary of the tests that we will execute"""
         for i in range(len(self.battery)):
             banner(str(i) + "):\t" + self.battery[i].codename)
-            print self.battery[i]
             print "\n"
 
     def make_subtree(self, root, dirs):
@@ -140,24 +139,30 @@ class TestBattery:
     def pre_run(self):
         self.make_subtree(self.root, RESULTS.iterkeys())
         compl_file = os.path.join(self.root, COMPLETED)
-        compl = open(compl_file).read().splitlines()
-        diff = list(set(self.test_configs).difference(compl))
-        print "you already completed those tests %s " % str(compl)
-        print "You still have to do %s" % str(diff)
-        # I only load the configs I want to
-        self.load_configs(diff)
+        try:
+            compl = map(lambda x: "configs/" + x + ".ini", open(compl_file).read().splitlines())
+        except IOError:
+            # if the file is not there creates it and loads everything
+            open(compl_file, 'w')
+            self.load_configs()
+        else:
+            diff = list(set(self.test_configs).difference(compl))
+            diff.sort()
+            # I only load the configs I want to
+            self.load_configs(diff)
+            self.summary()
 
     def run(self):
-        self.summary()
         i = 0
         while i < len(self.battery):
             if SIMULATE:
                 print "only simulating %s" % str(self.battery[i])
                 i += 1
                 continue
+            banner("TEST %s:\n" % self.battery[i].codename, sym="=")
             try:
                 # better handle it here not inside the test itself
-                mon, proc = self.run_test(self.battery[i])
+                self.run_test(self.battery[i])
             except KeyboardInterrupt:
                 a = raw_input("last test canceled, (s)kip or (r)estart or (q)uit the test session:\n")
                 if a == 'q':
@@ -166,7 +171,7 @@ class TestBattery:
                     i += 1
             else:
                 print "writing the results to files"
-                self.write_results(self.battery[i], mon, proc)
+                self.write_results(self.battery[i])
                 print "test %s done" % self.battery[i].codename
                 i += 1
 
@@ -175,32 +180,31 @@ class TestBattery:
         Running one single test, plotting the results if gnuplot availble
         and saving the results in a directory structure
         """
-        banner("TEST %s:\n" % test.codename, sym="=")
         print test
         cmd = str(test['iperf'])
+        raw_input("Press any key when ready:\n")
         # automatically writes the output to the right place, kind of magic of subprocess
         if self.monitor:
-            mon = subprocess.Popen(self.ssh, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            mon = subprocess.Popen(self.ssh % "dump.tmp", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         else:
             raw_input("unable to monitor, you have to do it yourself, press a key when ready to sniff")
         
-        proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print "executing %s" % cmd
+        proc = subprocess.Popen(cmd, shell=True, stdout=open("iperf.tmp",'w'), stderr=subprocess.PIPE)
         if re.search("did not receive ack", proc.stderr.read()):
             print "host %s not responding, quitting the test" % self.conf['iperf']['host']
             sys.exit(BADHOST)
-        
-        return mon.stdout, proc.stdout
     
     # TODO writing results is only outside the test running
-    def write_results(self, test, mon, proc):
+    def write_results(self, test):
         res_dict = get_res(self.root, test.codename)
-        self.analyzer.parse_file(proc)
         # saving the dump file
-        open(res_dict["dump"],'w').write(mon.read())
-        open(res_dict["iperf"], 'w').write(proc.read())
+        shutil.move("dump.tmp", res_dict["dump"])
+        shutil.move("iperf.tmp", res_dict["iperf"])
+        self.analyzer.parse_file(open(res_dict["iperf"], 'r'))
         test.to_ini(open(res_dict["full_conf"], 'w'))
         self.plot(self.analyzer.result['values'], test.codename, res_dict["graphs"])
-        open(os.path.join(self.root, COMPLETED), 'a').write(test.codename)
+        open(os.path.join(self.root, COMPLETED), 'a').write(test.codename + "\n")
 
     def plot(self, results, codename, filename):
         plotter = Plotter("testing", "kbs")
