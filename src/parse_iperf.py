@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 import re
+import sys
 from utils import Size
 
 # ==========================================
@@ -53,7 +54,44 @@ class IperfOutCsv(IperfOutput):
                 self.result[p] = l[self.positions[p]]
             self.result["transfer"] = self._translate(self.result["transfer"])
         # otherwise automatically do nothing, empty line probably
-        
+
+class IperfServer:
+    def __init__(self):
+        self.positions = {
+            "value" : 4, "jitter" : 5, "missed" : 6, "total" : 7
+        }
+        self.num = re.compile(r"(\d+)(?:\.(\d+))?")
+        self.results = {}
+    
+    def parse_file(self, filename):
+        # last line not evaluated
+        for line in filename.readlines()[:-1]:
+            self.parse_line(line)
+    
+    def parse_line(self, line):
+        if re.search(r"\bKBytes\b", line):
+            nums = self.num.findall(line)
+            values = map(self._fun, nums)
+            print "values found %s" % str(values)
+            for s in self.positions.keys():
+                val = values[self.positions[s]]
+                if self.results.has_key(s):
+                    self.results[s].append(val)
+                else:
+                    self.results[s] = [val]
+
+    def get_values(self, field = 'value'):
+        # leaving exception handling outside
+        return self.results[field]
+
+    def _fun(self, tup):
+        """Taking float numbers in a list of tuples"""
+        if tup[1]:
+            return float('.'.join([tup[0], tup[1]]))
+        else:
+            return int(tup[0])
+
+
 class IperfOutPlain(IperfOutput):
     """Handling iperf not in csv mode"""
     def __init__(self):
@@ -79,4 +117,12 @@ class IperfOutPlain(IperfOutput):
             return float('.'.join([tup[0], tup[1]]))
         else:
             return int(tup[0])
-        
+    
+    
+if __name__ == '__main__':
+    files = sys.argv[1:]
+    for n, f in enumerate(files):
+        print "%d) analyzing file %s" % (n, f)
+        i = IperfOutPlain()
+        i.parse_file(open(f))
+        print i.result

@@ -18,6 +18,7 @@ from src.config import *
 from src.utils import *
 from src.opts import *
 from src.vars import *
+from src.analyze import *
 
 GNUPLOT = True
 try:
@@ -30,17 +31,14 @@ except ImportError, i:
 SIMULATE = False
 VERBOSE = False
 
-# exit codes
+# exit codes FIXME, avoid it use exceptions
 BADHOST = 1
 BADCONF = 2
 
 def get_res(root, code):
+    """Returns the dictionary of results paths"""
     paths = [ os.path.join(root, k, val % code) for k, val in RESULTS.iteritems() ]
     return dict(zip(RESULTS.keys(), paths))
-
-def banner(text, sym="*"):
-    start = end = sym * 40
-    print "\n".join(map(lambda x: x.center(50), [start, text, end]))
 
 class TestBattery:
     def __init__(self, username):
@@ -65,6 +63,7 @@ class TestBattery:
         self.battery = []
         # dictionary containing absolute paths for the results
         self.analyzer = IperfOutPlain()
+        self.analyzer_server = IperfServer()
         self.root = ROOT % username
 
     def is_consistent(self, conf):
@@ -158,6 +157,8 @@ class TestBattery:
             else:
                 print "writing the results to files"
                 self.write_results(self.battery[i])
+                # only now I can kill the iperf server
+                subprocess.Popen("ssh " + self.battery[i]['monitor']['host'].value + " killall -9 iperf", shell=True)
                 print "test %s done" % self.battery[i].codename
                 i += 1
 
@@ -176,6 +177,11 @@ class TestBattery:
             raw_input("unable to monitor, you have to do it yourself, press a key when ready to sniff")
         
         print "executing %s" % cmd
+        srv = " ".join(["ssh", test["monitor"]["host"].value, "iperf -s -u -f K -i", test["iperf"]["interval"].value])
+        print "executing %s" % srv
+        subprocess.Popen(srv, shell=True, stdout=open("server.tmp", 'w'))
+        # TODO make sure the iperf server is up and running
+        time.sleep(2)
         proc = subprocess.Popen(cmd, shell=True, stdout=open("iperf.tmp",'w'), stderr=subprocess.PIPE)
         if re.search("did not receive ack", proc.stderr.read()):
             print "host %s not responding, quitting the test" % self.conf['iperf']['host']
@@ -186,16 +192,19 @@ class TestBattery:
         res_dict = get_res(self.root, test.codename)
         # saving the dump file
         shutil.move("dump.tmp", res_dict["dump"])
-        shutil.move("iperf.tmp", res_dict["iperf"])
-        self.analyzer.parse_file(open(res_dict["iperf"], 'r'))
+        shutil.move("iperf.tmp", res_dict["iperf_client"])
+        shutil.move("server.tmp", res_dict["iperf_server"])
+        self.analyzer.parse_file(open(res_dict["iperf_client"], 'r'))
+        self.analyzer_server.parse_file(open(res_dict["iperf_server"], 'r'))
         test.to_ini(open(res_dict["full_conf"], 'w'))
-        self.plot(self.analyzer.result['values'], test.codename, res_dict["graphs"])
+        self.plot({"client" : self.analyzer.get_values(), "server" : self.analyzer_server.get_values()}, test.codename, res_dict["graphs"])
         open(os.path.join(self.root, COMPLETED), 'a').write(test.codename + "\n")
 
     def plot(self, results, codename, filename):
         """Plots and writes the graph generated to filename"""
         plotter = Plotter("testing", "kbs")
-        plotter.add_data(results, codename)
+        for key, val in results.iteritems():
+            plotter.add_data(val, codename + " " + key)
         plotter.plot()
         plotter.save(filename)
 
@@ -203,36 +212,6 @@ class TestBattery:
         """Automatic run of the tests"""
         self.pre_run()
         self.run()
-
-
-class Plotter:
-    """Class for plotting during testing"""
-    def __init__(self, title, value, maxGraphs = 2):
-        self.title = title
-        self.value = value
-        self.items = []
-        self.last = []
-        self.plotter = Gnuplot.Gnuplot(persist = 1)
-        self.plotter.set_string("title", title)
-        self.plotter.set_range('yrange', (0,"*"))
-        self.plotter.set_label('xlabel', "step")
-        self.plotter.set_label('ylabel', self.value)
-
-    def add_data(self, data, name):
-        """Add another data set"""
-        # always keeping last maxGraphs elements in the item list and redraw them
-        self.last = data
-        new = Gnuplot.Data(data, title = name)
-        self.items.append(new)
-
-    def plot(self):
-        """docstring for plot"""
-        self.plotter.plot(*self.items)
-    
-    def save(self, filename):
-        print "saving graph to %s" % filename
-        self.plotter.hardcopy(filename=filename, eps=True, color=True)
-    
 
 def usage():
     print """
@@ -242,10 +221,9 @@ def usage():
     """
     sys.exit(0)
 
-
 if __name__ == '__main__':
     # TODO implementing a test cleaner
-    opts, args = getopt(sys.argv[1:], 'cvsh', ['verbose', 'simulate', 'help', 'clean'])
+    opts, args = getopt.getopt(sys.argv[1:], 'cvsh', ['verbose', 'simulate', 'help', 'clean'])
     for o, a in opts:
         if o in ('-h', '--help'):
             usage()

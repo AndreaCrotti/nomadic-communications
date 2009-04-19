@@ -103,7 +103,7 @@ class IperfConf(Cnf):
             "time"  : "-t",
             "format" :"-f",
             "interval" : "-i",
-            "udp"   : "-u"
+            "udp"    : "-u",
         }
         self.show_opt = ["host", "udp", "speed", "time", "interval", "format"]
         Cnf.__init__(self, "iperf")
@@ -136,12 +136,13 @@ class ClientConf(Cnf):
 class MonitorConf(Cnf):
     def __init__(self, conf):
         self.raw_conf = conf
-        par = ["host", "interface"]
+        par = ["host", "interface", "num_packets"]
         self.options = dict(zip(par, par))
         self.ssh = ""
         Cnf.__init__(self, "monitor")
+        num = self.conf['num_packets'].value
         if self.conf['host'] and self.conf['interface']:
-            self.ssh = " ".join(["ssh", self.conf['host'].value,  "tcpdump -i", self.conf['interface'].value, "-c 1000 -w - > %s"])
+            self.ssh = " ".join(["ssh", self.conf['host'].value,  "tcpdump -i", self.conf['interface'].value, "-c", num, "-w - > %s"])
         
     def __str__(self):
         return self.ssh
