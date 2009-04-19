@@ -1,0 +1,4 @@
+* Use sqlite for managing data
+* Generalize the test tools adaptable (general parser class and configuration)
+* Use pexect for better handling of remote commands
+* Check if _num_packets = 0..10000_ can be heavy to compute (without being useful)
