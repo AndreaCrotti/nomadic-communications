@@ -7,7 +7,6 @@
 import shelve
 import getopt
 import re
-import scapy
 
 SCAPY = True
 try:
