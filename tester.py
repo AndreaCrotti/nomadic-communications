@@ -52,7 +52,7 @@ class TestBattery:
             sys.exit(BADCONF)
 
         self.default_conf = Configuration(self.conf_file, codename = "default")
-        self.user_conf = Configuration(USER_CONFS % self.username, codename = username)
+        self.user_conf = Configuration(USER_CONFS % username, codename = username)
         self.monitor = False
         if self.user_conf["monitor"]["ssh"]:
             self.ssh = self.user_conf["monitor"]["ssh"]
