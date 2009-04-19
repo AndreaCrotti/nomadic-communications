@@ -7,6 +7,31 @@ def clear():
     else:
         os.system('clear')
 
+def banner(text, sym="*"):
+    start = end = sym * 40
+    print "\n".join(map(lambda x: x.center(50), [start, text, end]))
+    
+# TODO avoid returning booleans, using exception handling
+def check_remote(host, user = None, command = ""):
+    """Checking the remote access to a host, optionally
+    with user user (useful to check root access)"""
+    if user:
+        p = subprocess.Popen(remote(host, "id"), stdout = subprocess.PIPE, shell=True)
+        out = p.stdout.read()
+        if user in out:
+            print "yes you are the root"
+            return True
+        else:
+            print "no dude"
+            return False
+    else:
+        return (subprocess.Popen(remote(host, 'ls'), shell=True, stdout = subprocess.PIPE).wait() == 0)
+    
+
+def remote(host, command):
+    """Making a remote command"""
+    return " ".join(["ssh", host, command])
+
 # FIXME wait until the end, spawn the process maybe
 def play(message):
     """Plays a wav file given in message"""
