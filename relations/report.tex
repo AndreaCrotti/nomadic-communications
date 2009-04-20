@@ -1,7 +1,14 @@
 \documentclass[12pt]{article}
 
 \usepackage{times}
+\usepackage{ifpdf}
+\ifpdf
+\usepackage[pdftex]{graphicx}
+\else
 \usepackage{graphicx}
+\fi
+
+\usepackage{minitoc}
 \usepackage{subfigure}
 \usepackage{color}
 \usepackage{url}
@@ -22,6 +29,7 @@
     \centering
      \begin{figure}[ht]
        \centering
+       % TODO fix latex errors
        \includegraphics[angle=-90, keepaspectratio=true, width=8cm]{logo.eps}
      \end{figure}
      {

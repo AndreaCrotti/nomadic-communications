@@ -7,6 +7,7 @@
 import shelve
 import getopt
 import re
+from errors import *
 
 # SCAPY = True
 # try:
@@ -26,7 +27,7 @@ GNUPLOT = True
 try:
     import Gnuplot
 except ImportError, i:
-    print "you will be unable to plot in real time"
+    print "you will be unable to plot"
     GNUPLOT = False
     
 DUMP = "traffic/traffic.out"
@@ -39,6 +40,8 @@ DUMP = "traffic/traffic.out"
 class Plotter:
     """Class for plotting during testing"""
     def __init__(self, title, value, maxGraphs = 2):
+        if not GNUPLOT:
+            LibError("gnuplot", True)
         self.title = title
         self.value = value
         self.items = []

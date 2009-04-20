@@ -19,13 +19,7 @@ from src.utils import *
 from src.opts import *
 from src.vars import *
 from src.analyze import *
-
-GNUPLOT = True
-try:
-    import Gnuplot
-except ImportError, i:
-    print "you will be unable to plot in real time"
-    GNUPLOT = False
+from src.errors import *
 
 # global flags
 SIMULATE = False
@@ -46,7 +40,7 @@ class TestBattery:
             # maybe need to close also somewhere
             self.conf_file = "default.ini"
         except IOError:
-            print "unable to found default configuration, quitting"
+            print "unable to find default configuration, quitting"
             sys.exit(BADCONF)
 
         self.default_conf = Configuration(self.conf_file, codename = "default")
@@ -145,6 +139,9 @@ class TestBattery:
                 i += 1
                 continue
             banner("TEST %s:\n" % self.battery[i].codename, sym="=")
+            srv = " ".join(["ssh", test["monitor"]["host"].value, "iperf -s -u -f K -i", test["iperf"]["interval"].value])
+            subprocess.Popen(srv, shell=True, stdout=open("server.tmp", 'w'))
+            print "executing %s" % srv
             try:
                 # better handle it here not inside the test itself
                 self.run_test(self.battery[i])
@@ -158,6 +155,7 @@ class TestBattery:
                 print "writing the results to files"
                 self.write_results(self.battery[i])
                 # only now I can kill the iperf server
+                # FIXME using pexpect instead
                 subprocess.Popen("ssh " + self.battery[i]['monitor']['host'].value + " killall -9 iperf", shell=True)
                 print "test %s done" % self.battery[i].codename
                 i += 1
@@ -177,9 +175,6 @@ class TestBattery:
             raw_input("unable to monitor, you have to do it yourself, press a key when ready to sniff")
         
         print "executing %s" % cmd
-        srv = " ".join(["ssh", test["monitor"]["host"].value, "iperf -s -u -f K -i", test["iperf"]["interval"].value])
-        print "executing %s" % srv
-        subprocess.Popen(srv, shell=True, stdout=open("server.tmp", 'w'))
         # TODO make sure the iperf server is up and running
         time.sleep(2)
         proc = subprocess.Popen(cmd, shell=True, stdout=open("iperf.tmp",'w'), stderr=subprocess.PIPE)
@@ -197,6 +192,7 @@ class TestBattery:
         self.analyzer.parse_file(open(res_dict["iperf_client"], 'r'))
         self.analyzer_server.parse_file(open(res_dict["iperf_server"], 'r'))
         test.to_ini(open(res_dict["full_conf"], 'w'))
+        # FIXME ugly argument passing
         self.plot({"client" : self.analyzer.get_values(), "server" : self.analyzer_server.get_values()}, test.codename, res_dict["graphs"])
         open(os.path.join(self.root, COMPLETED), 'a').write(test.codename + "\n")
 

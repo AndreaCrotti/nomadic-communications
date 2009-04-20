@@ -120,7 +120,7 @@ class ApConf(Cnf):
     def __init__(self, conf):
         self.raw_conf = conf
         par = ["mode", "speed", "ip", "ssid", "channel", "comment", "firmware", "model"]
-        # FIXME not really beatiful
+        # FIXME why such a stupid dict?
         self.options = dict(zip(par, par))
         self.show_opt = ["mode", "speed", "rts_threshold", "frag_threshold"]
         Cnf.__init__(self, "ap")
@@ -143,7 +143,7 @@ class MonitorConf(Cnf):
         num = self.conf['num_packets'].value
         if self.conf['host'] and self.conf['interface']:
             self.ssh = " ".join(["ssh", self.conf['host'].value,  "tcpdump -i", self.conf['interface'].value, "-c", num, "-w - > %s"])
-        
+    
     def __str__(self):
         return self.ssh
     

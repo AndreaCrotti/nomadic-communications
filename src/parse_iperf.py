@@ -5,9 +5,6 @@ import re
 import sys
 from utils import Size
 
-# ==========================================
-# = Handling iperf output in various forms =
-# ==========================================
 class IperfOutput(object):
     """Handling parsing of iperf, getting one line at a time or a file"""
     
