@@ -139,7 +139,7 @@ class TestBattery:
                 i += 1
                 continue
             banner("TEST %s:\n" % self.battery[i].codename, sym="=")
-            srv = " ".join(["ssh", test["monitor"]["host"].value, "iperf -s -u -f K -i", test["iperf"]["interval"].value])
+            srv = " ".join(["ssh", self.battery[i]["monitor"]["host"].value, "iperf -s -u -f K -i", self.battery[i]["iperf"]["interval"].value])
             subprocess.Popen(srv, shell=True, stdout=open("server.tmp", 'w'))
             print "executing %s" % srv
             try:
