@@ -1,11 +1,12 @@
 h1. DESCRIPTION
 
 This project is about testing network performances with different wireless devices and configurations.
+Using wireless devices is not mandatory of course, in this configuration we analyze the output of "iperf":http://sourceforge.net/projects/iperf , so any kind of network testing can be automated.
 
 Results are then statistically analyzed and there will be 2 relations (written in latex) explaining the results.
 
 The main __idea__ behind the program is the concept of configuration, which is basically an __ini__ file containing different sections and values for each of them.
-Values can
+Values can be:
 * lists (speed = 1M, 2M)
 * constants (host = server)
 * ranges (rts_threshold = 256..1000)
@@ -13,33 +14,22 @@ Values can
 Configurations are kind of complex dictionaries built parsing the __ini__ files where a basic arithmetic is defined.
 You can merge them together (+) or get their difference (-) obtaining new configurations (both or them are NOT commutative).
 
-The program first imports the default configuration, which contains all the possible values that I may set, then a user defined configuration.
+For every test there is basically a three step merge: <br>
+_default.ini_ + _user.ini_ + _test.ini_
+
+After this merge we have the full configuration which is then executed and which results are further analyzed.
+
 
 h1. USAGE
 
-<!--- TODO insert info about iperf -s -u -->
-
-This program first load the default configuration from __config.ini__ and then all the __*.ini__ files found in the __configs__ folder.
-The configuration are merged and loaded in a big list, which is analyzed and resorted in order to need the minimal human input as possible.
-
-The list is in fact divided in sublists which contain configurations which different only by parameter than can be set automatically by the program itself (in this moment just "iperf").
-
-After having loaded all the configurations it starts to execute them, waiting for the user confirmation when needed and store the results to a database file (using shelve).
-
-Note that the values that you can put inside your configuration files must be also contained in the config.ini (as lists or singleton).
-Otherwise the file will not be loaded and an error will be printed, this is done to avoid typos.
-
-Data are also plotted after being generated, but the plot is just for instant visualization, and can be redraw much better in the phase of the analysis of the results.
-During the execution of the program, the output of iperf is also stored on files in __iperf_out__ using the same codename, useful to double check for possible parsing errors later.
-
-It is important to store as much as informations (valuable informations of course) as possible, in this way we have more material to work with after.
-
-It would also be nice to have a sample of traffic dump for every test effectuated.
+To run the program check that the file _tester.py_ is executable and simply run.
+*./tester.py <user>*<br>
+where *user* is represents a user configuration contained in the directory *userconfs*.
 
 h2. Batch mode
 
 So in order to use this program you need to
-* Configure correcly __config.ini__ for your setup
+* Configure correcly __default.ini__ for your setup
 * run __./tester.py__ (you may need to run __chmod u+x tester.py__ before to make it executable)
 * follow the instructions
 
