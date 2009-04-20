@@ -78,12 +78,12 @@
 % Every section is writte in a separate file (see \include commands). This means that anything (subsections and everything else) following \include should be placed in that file. I wrote everything here to make the thing readable.
 
 \section{Introduction} \label{intro}
-	\include{intro}
+	\input{intro}
 	% Describe what we are gonna do, the general ideas and what we are gonna talk about.
 	% Say what is needed to understand the sections that will follow.
 
 \section{Theoretical background} \label{theory}
-	\include{theory}
+	\input{theory}
 	% Everything that comes from theory and that is needed to understand and describe our work.
 	% A simple description of how an IEEE 802.11 protocol works to introduce the fact that there is some overhead added by the protocol.
 		%\subsection{Differences between 802.11b and 802.11g} \label{theory:prot_differences}
@@ -103,21 +103,21 @@
 	% - C connects to S via SSH over clan, starts iperf server and starts tcpdump
 	% - C uses iperf to send UDP traffic to S over AP on wlan
 	% - C gets out outputs from S using clan
-	\include{hardware}
+	\input{hardware}
 	%\subsection{Hardware} \label{setup:hardware}
 		% mainly C wifi card configuration, ap settings
 
-	\include{software}
+	\input{software}
 	%\subsection{Software} \label{setup:software}
 		% ssh keys, iwconfig, python software, iperf, tcpdump, gnuplot, whatever used
 
 \subsection{Parameters} \label{parameters}
-	\include{parameters}
+	\input{parameters}
 	% Parameters of the tests. Everything that influences the tests and the results we are trying to look at. This includes both static and variables things.
 	% Wifi channel speed used, fragmentation threshold, rst threshold and similars
 
 \section{Results} \label{results}
-	\include{results}
+	\input{results}
 	% Our results and something that underlines that we understand the mean of the results. Results are not self evident!
 	% Any formula used to calculate the efficency or whatever must be written and described.
 	%\subsection{IEEE 802.11b} \label{resutls:11b}
