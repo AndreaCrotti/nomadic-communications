@@ -10,8 +10,16 @@ def clear():
 def banner(text, sym="*"):
     start = end = sym * 40
     print "\n".join(map(lambda x: x.center(50), [start, text, end]))
+
+# TODO write a better remote host checking
+def to_remote(cmd):
+    print "==>\t" + cmd
+
+def to_local(cmd):
+    print "!!\t" + cmd
+
     
-# TODO avoid returning booleans, using exception handling
+# TODO avoid returning booleans, using exception handling!!
 def check_remote(host, user = None, command = ""):
     """Checking the remote access to a host, optionally
     with user user (useful to check root access)"""

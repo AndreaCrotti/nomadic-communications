@@ -43,7 +43,11 @@ class Cnf:
     # TODO adding a check to see if null value in the second?
     def __add__(self, other):
         merged = deepcopy(self)
-        merged.conf.update(other.conf)
+        # merged.conf.update(other.conf)
+        for key in merged.conf.keys():
+            if other.conf.has_key(key):
+                merged.conf[key] = other.conf[key]
+        # CHANGED adding all those keys who were not defined in the other conf
         return merged
 
     def __sub__(self, other):
@@ -87,6 +91,7 @@ class Cnf:
                 if v == 'True':
                     self.conf[key] = ConstOpt(self.options[key], "") # TODO check if better BoolOpt
             else:
+                # self.conf[key] = ParamOpt(self.options[key], v, [v])
                 self.conf[key] = ConstOpt(self.options[key], v)
     
 # ===============================================================
@@ -130,7 +135,7 @@ class ClientConf(Cnf):
         self.raw_conf = conf
         par = ["brand", "rts_threshold", "frag_threshold", "model", "driver"]
         self.options = dict(zip(par, par))
-        self.show_opt = ["speed", "rts_threshold", "frag_threshold"]
+        self.show_opt = ["rts_threshold", "frag_threshold"]
         Cnf.__init__(self, "client")
         
 class MonitorConf(Cnf):
@@ -138,14 +143,10 @@ class MonitorConf(Cnf):
         self.raw_conf = conf
         par = ["host", "interface", "num_packets"]
         self.options = dict(zip(par, par))
-        self.ssh = ""
         Cnf.__init__(self, "monitor")
-        num = self.conf['num_packets'].value
-        if self.conf['host'] and self.conf['interface']:
-            self.ssh = " ".join(["ssh", self.conf['host'].value,  "tcpdump -i", self.conf['interface'].value, "-c", num, "-w - > %s"])
-    
+
     def __str__(self):
-        return self.ssh
+        return "dump command"
     
     def __getitem__(self, idx):
         if idx == "ssh":
@@ -265,9 +266,12 @@ class Configuration:
                     elif val.find('..') >= 0:
                         st = val.split('..')
                         tmpconf[sec][opt] = map(str, range(int(st[0]), int(st[1])+1))
-                    
+            
                     else:
                         tmpconf[sec][opt] = val
+                else:
+                    # setting the null string otherwise
+                    tmpconf[sec][opt] = ''
 
             if opt_conf.has_key(sec):
                 self.conf[sec] = opt_conf[sec](tmpconf[sec])

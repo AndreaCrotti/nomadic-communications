@@ -67,6 +67,7 @@ class ConstOpt(Opt):
         Opt.__init__(self, name, value)
     
     def valid(self, value):
+        """Valid if matching a regex or if no regex at all"""
         return (not(self.regex) or re.match(self.regex, value))
     
     def choices(self):
