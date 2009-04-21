@@ -1,5 +1,23 @@
 % Describe what we are gonna do, the general ideas and what we are gonna talk about.
 % Say what is needed to understand the sections that will follow.
+\documentclass[11pt]{amsart}
+\usepackage{geometry}                % See geometry.pdf to learn the layout options. There are lots.
+\geometry{letterpaper}                   % ... or a4paper or a5paper or ... 
+%\geometry{landscape}                % Activate for for rotated page geometry
+%\usepackage[parfill]{parskip}    % Activate to begin paragraphs with an empty line rather than an indent
+\usepackage{graphicx}
+\usepackage{amssymb}
+\usepackage{epstopdf}
+\DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
+
+%\title{Brief Article}
+%\author{The Author}
+%\date{}                                           % Activate to display a given date or no date
+
+\begin{document}
+%\maketitle
+\section{Intro}
+%\subsection{}
 
 The purpose of the project is the evaluation of the performances variation of a wireless network 802.11 b/g at the change of some parameters.
 
@@ -8,3 +26,5 @@ In order to make those tests we used some tools whitch are Iperf, wireshark, and
 The test consist basicaly in many automatic execution of iperf with fixed time and different speed and finaly we consider the amount of transfering data.
 
 The set of the tests was an indoor environment a notebook wich run iperf as server, an other notebook wich run iperf as client (throw the python script), a cisco ap and another notebook wich run wireshark to sniff the traffic.
+
+\end{document}  
