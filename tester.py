@@ -21,6 +21,7 @@ from src.vars import *
 from src.analyze import *
 from src.errors import *
 
+SSH_CMD = "ssh %s tcpdump -i %s -c %s -w - > %s"
 # global flags
 SIMULATE = False
 VERBOSE = False
@@ -45,10 +46,6 @@ class TestBattery:
 
         self.default_conf = Configuration(self.conf_file, codename = "default")
         self.user_conf = Configuration(USER_CONFS % username, codename = username)
-        self.monitor = False
-        if self.user_conf["monitor"]["ssh"]:
-            self.ssh = self.user_conf["monitor"]["ssh"]
-            self.monitor = True
         # monitoring informations must stay in user_conf
         self.conf = self.default_conf + self.user_conf
         self.conf.username = "merged"
@@ -131,7 +128,7 @@ class TestBattery:
             self.summary()
 
     def run(self):
-        # TODO battery and _group_auto can be reimplemented using itertools.groupby
+        # TODO battery and _group_auto can be maybe reimplemented using itertools.groupby
         i = 0
         while i < len(self.battery):
             if SIMULATE:
@@ -141,7 +138,7 @@ class TestBattery:
             banner("TEST %s:\n" % self.battery[i].codename, sym="=")
             srv = " ".join(["ssh", self.battery[i]["monitor"]["host"].value, "iperf -s -u -f K -i", self.battery[i]["iperf"]["interval"].value])
             subprocess.Popen(srv, shell=True, stdout=open("server.tmp", 'w'))
-            print "executing %s" % srv
+            to_remote(srv)
             try:
                 # better handle it here not inside the test itself
                 self.run_test(self.battery[i])
@@ -156,26 +153,33 @@ class TestBattery:
                 self.write_results(self.battery[i])
                 # only now I can kill the iperf server
                 # FIXME using pexpect instead
-                subprocess.Popen("ssh " + self.battery[i]['monitor']['host'].value + " killall -9 iperf", shell=True)
+                time.sleep(2)
                 print "test %s done" % self.battery[i].codename
                 i += 1
+            finally:
+                # killing must be done anyway
+                kill = "ssh " + self.battery[i]['monitor']['host'].value + " killall -9 iperf"
+                to_remote(kill)
+                subprocess.Popen(kill, shell=True)
+                
 
     def run_test(self, test):
         """
         Running one single test, plotting the results if gnuplot availble
         and saving the results in a directory structure
         """
+        monitor = test.conf['monitor']
+        # FIXME brrr how bad
+        mon_cmd = SSH_CMD % (monitor['host'].value, monitor['interface'].value, monitor['num_packets'].value, "dump.tmp")
         print test
         cmd = str(test['iperf'])
         raw_input("Press any key when ready:\n")
         # automatically writes the output to the right place, kind of magic of subprocess
-        if self.monitor:
-            mon = subprocess.Popen(self.ssh % "dump.tmp", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        else:
-            raw_input("unable to monitor, you have to do it yourself, press a key when ready to sniff")
-        
-        print "executing %s" % cmd
-        # TODO make sure the iperf server is up and running
+        to_local(cmd)
+        to_remote(mon_cmd)
+
+        mon = subprocess.Popen(mon_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # FIXME use expect instead
         time.sleep(2)
         proc = subprocess.Popen(cmd, shell=True, stdout=open("iperf.tmp",'w'), stderr=subprocess.PIPE)
         if re.search("did not receive ack", proc.stderr.read()):
