@@ -36,6 +36,7 @@ def make_plot(files):
         res = i.get_values()
         print "adding data of %s: %s" % (code, res)
         p.add_data(res, code)
+    print "saving graph to %s" % OUTPUT
     p.plot()
     
 if __name__ == '__main__':
