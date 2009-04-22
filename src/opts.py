@@ -3,7 +3,7 @@ import re
 # ================================
 # = Classes for handling options =
 # ================================
-class Opt:
+class Opt(object):
     """General class for options, generates a ValueError exception whenever
     trying to set a value which is not feasible for the option"""
     def __init__(self, name, value = None):

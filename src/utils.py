@@ -15,25 +15,42 @@ def load_remote_config(conf_file):
 
 class RemoteCommand(object):
     """Incapsulating the need of launching commands and
-    getting the output"""
-    def __init__(self, outfile="dump"):
+    getting the resulting output"""
+    def __init__(self, outfile="dump", server=False):
         self.outfile = outfile
         self.ssh = paramiko.SSHClient()
+        self.server = server
         # this should be enough for the server key
         self.ssh.load_system_host_keys()
     
-    def connect(self, host, user, password, port=22):
+    def connect(self, **kw):
         try:
-            # the connection remains open
-            self.ssh.connect(host, port=port, username=user, password=password)
-        except Exception:
-            logging.error("Not able to connect to %s" % host)
+            # so I also take it off the dictionary
+            host = kw.pop('host')
+        except KeyError:
+            logging.error("Host key is really needed")
+        if kw.has_key('port'):
+            # an int is needed for port number
+            kw['port'] = int(kw['port'])
+        else:
+            
+            try:
+                # the connection stays open until close()
+                self.ssh.connect(host, **kw)
+            except Exception:
+                logging.error("Not able to connect to %s" % host)
 
     def run_command(self, cmd, args):
-        self.cmd = command
-        command += " > %s" % self.outfile
+        # the kill command must not be complete
+        # FIXME using the PID instead
+        self.killcmd = cmd
+        command = " ".join([cmd, args, "> %s" % self.outfile])
+        if self.server:
+            # in this way I get back the control
+            command += " &"
         logging.info("running command %s" % command)
-        self.ssh.exec_command(command)
+        _, _, err = self.ssh.exec_command(command)
+        logging.error(err.read())
     
     def get_output(self, remote_file):
         ftp = self.ssh.open_sftp()
@@ -41,9 +58,11 @@ class RemoteCommand(object):
         ftp.get(self.outfile, remote_file)
         
     def close(self):
-        kill = "killall %s" % self.cmd
+        kill = "killall %s" % self.killcmd
         logging.info("executing %s" % kill)
-        self.ssh.exec_command(kill)
+        _, o, e = self.ssh.exec_command(kill)
+        logging.info(o.read())
+        logging.error(e.read())
         # close and kill the command if still running
         self.ssh.close()
 
@@ -100,7 +119,7 @@ def play(message):
     else:
         os.popen("aplay %s" % message)
 
-class MenuMaker:
+class MenuMaker(object):
     """Generates a nice menu"""
     def __init__(self, choices, key = "val"):
         self.choices = choices
@@ -137,7 +156,7 @@ def menu_set(menu):
                 continue
 
 
-class Size:
+class Size(object):
     """ Converting from one unit misure to the other """
     def __init__(self, value, unit = 'B'):
         self.value = value

@@ -52,7 +52,7 @@ class IperfOutCsv(IperfOutput):
             self.result["transfer"] = self._translate(self.result["transfer"])
         # otherwise automatically do nothing, empty line probably
 
-class IperfServer:
+class IperfServer(object):
     def __init__(self):
         self.positions = {
             "value" : 4, "jitter" : 5, "missed" : 6, "total" : 7

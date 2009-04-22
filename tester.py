@@ -9,6 +9,7 @@ import time
 import ConfigParser
 import subprocess
 import shutil
+import logging
 
 from glob import glob
 from getopt import getopt
@@ -21,27 +22,32 @@ from src.vars import *
 from src.analyze import *
 from src.errors import *
 
-SSH_CMD = "ssh %s tcpdump -i %s -c %s -w - > %s"
+TCPDUMP_CMD = "tcpdump -i %s -c %s -w"
 # global flags
 SIMULATE = False
 VERBOSE = False
 
+
 # exit codes FIXME, avoid it use exceptions
 BADHOST = 1
 BADCONF = 2
+
+# CHANGE here the level of verbosity
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 def get_res(root, code):
     """Returns the dictionary of results paths"""
     paths = [ os.path.join(root, k, val % code) for k, val in RESULTS.iteritems() ]
     return dict(zip(RESULTS.keys(), paths))
 
-class TestBattery:
+class TestBattery(object):
     def __init__(self, username):
         try:
             # maybe need to close also somewhere
-            self.conf_file = "default.ini"
+            self.conf_file = DEFAULT
         except IOError:
-            print "unable to find default configuration, quitting"
+            logging.error("unable to find default configuration in %s, quitting" 
+                % self.conf_file)
             sys.exit(BADCONF)
 
         self.default_conf = Configuration(self.conf_file, codename = "default")
@@ -56,12 +62,13 @@ class TestBattery:
         self.analyzer = IperfOutPlain()
         self.analyzer_server = IperfServer()
         self.root = ROOT % username
+        self.remotes = load_remote_config(REMOTES)
 
     def is_consistent(self, conf):
         """Checking if configuration loaded is consistent with default configuration"""
         for sec in conf.keys():
             if sec not in self.conf.keys():
-                print "section %s not found, skipping it" % str(sec)
+                logging.info("section %s not found, skipping it" % str(sec))
             else:
                 for opt in conf[sec].keys():
                     if opt not in self.conf[sec].keys():
@@ -115,13 +122,13 @@ class TestBattery:
         self.make_subtree(self.root, RESULTS.iterkeys())
         compl_file = os.path.join(self.root, COMPLETED)
         try:
-            compl = map(lambda x: "configs/" + x + ".ini", open(compl_file).read().splitlines())
+            completed = map(lambda x: CONFIGS % x, open(compl_file).read().splitlines())
         except IOError:
             # if the file is not there creates it and loads everything
             open(compl_file, 'w')
             self.load_configs()
         else:
-            diff = list(set(self.test_configs).difference(compl))
+            diff = list(set(self.test_configs).difference(completed))
             diff.sort()
             # I only load the configs I want to
             self.load_configs(diff)
@@ -131,14 +138,21 @@ class TestBattery:
         # TODO battery and _group_auto can be maybe reimplemented using itertools.groupby
         i = 0
         while i < len(self.battery):
+            server = ("iperf", "-s -u -f K -i " + self.battery[i]["iperf"]["interval"].value)
+            monitor = ("tcpdump", " -i eth0 -c 1000 -w -")
+            srv = RemoteCommand(outfile = "server.dump", server=True)
+            mon = RemoteCommand(outfile = "monitor.dump", server=True)
+
+            srv.connect(**self.remotes['server'])
+            mon.connect(**self.remotes['monitor'])
+            srv.run_command(*server)
+            mon.run_command(*monitor)
+
             if SIMULATE:
                 print "only simulating %s" % str(self.battery[i])
                 i += 1
                 continue
             banner("TEST %s:\n" % self.battery[i].codename, sym="=")
-            srv = " ".join(["ssh", self.battery[i]["monitor"]["host"].value, "iperf -s -u -f K -i", self.battery[i]["iperf"]["interval"].value])
-            subprocess.Popen(srv, shell=True, stdout=open("server.tmp", 'w'))
-            to_remote(srv)
             try:
                 # better handle it here not inside the test itself
                 self.run_test(self.battery[i])
@@ -149,19 +163,15 @@ class TestBattery:
                 elif a == 's':
                     i += 1
             else:
-                print "writing the results to files"
+                srv.get_output("server.tmp")
+                mon.get_output("dump.tmp")
                 self.write_results(self.battery[i])
-                # only now I can kill the iperf server
-                # FIXME using pexpect instead
-                time.sleep(2)
-                print "test %s done" % self.battery[i].codename
+                logging.info("test %s done" % self.battery[i].codename)
                 i += 1
             finally:
-                # killing must be done anyway
-                kill = "ssh " + self.battery[i]['monitor']['host'].value + " killall -9 iperf"
-                to_remote(kill)
-                subprocess.Popen(kill, shell=True)
-                
+                # always closing the ssh connections (and killing commands also)
+                srv.close()
+                mon.close()
 
     def run_test(self, test):
         """
@@ -170,17 +180,11 @@ class TestBattery:
         """
         monitor = test.conf['monitor']
         # FIXME brrr how bad
-        mon_cmd = SSH_CMD % (monitor['host'].value, monitor['interface'].value, monitor['num_packets'].value, "dump.tmp")
         print test
         cmd = str(test['iperf'])
         raw_input("Press any key when ready:\n")
         # automatically writes the output to the right place, kind of magic of subprocess
-        to_local(cmd)
-        to_remote(mon_cmd)
-
-        mon = subprocess.Popen(mon_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        # FIXME use expect instead
-        time.sleep(2)
+        # time.sleep(2)
         proc = subprocess.Popen(cmd, shell=True, stdout=open("iperf.tmp",'w'), stderr=subprocess.PIPE)
         if re.search("did not receive ack", proc.stderr.read()):
             print "host %s not responding, quitting the test" % self.conf['iperf']['host']

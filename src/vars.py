@@ -12,3 +12,6 @@ COMPLETED = "completed.txt"
 # template strings parametric constants
 USER_CONFS = "userconfs/%s.ini"
 CONFIGS = "configs/%s.ini"
+
+REMOTES = "remotes.ini"
+DEFAULT = "default.ini"

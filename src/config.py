@@ -6,7 +6,7 @@ from copy import deepcopy
 from opts import *
 from tester import *
 
-class Cnf:
+class Cnf(object):
     def __init__(self, name):
         self.conf = {}
         self.to_conf()
@@ -172,7 +172,7 @@ opt_conf = {
     "gnuplot": lambda x: GnuplotConf(x)
 }
 
-class Configuration:
+class Configuration(object):
     """Class of a test configuration, only contains a one-one dict and a codename
     The value of the dict can be whatever, even a more complex thing.
     This is the basic type we're working on.

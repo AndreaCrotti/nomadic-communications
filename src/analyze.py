@@ -37,7 +37,7 @@ DUMP = "traffic/traffic.out"
 # Arrival time
 # Payload
 
-class Plotter:
+class Plotter(object):
     """Class for plotting during testing"""
     def __init__(self, title, value, maxGraphs = 2):
         if not GNUPLOT:
@@ -68,7 +68,7 @@ class Plotter:
         self.plotter.hardcopy(filename=filename, eps=True, color=True)
 
 
-class StatData:
+class StatData(object):
     """Statistical computations on data"""
     def __init__(self, data):
         self.data = data
