@@ -2,10 +2,9 @@ import sys
 # Error handling classes
 class TestError(Exception):
     def __init__(self, message = ""):
-        if message:
-            sys.stderr.write(message)
-        if self.fatal:
-            sys.exit(self.exitcode)
+        pass
+        # if self.fatal:
+        #     sys.exit(self.exitcode)
 
 class FileError(TestError):
     def __init__(self, filename, fatal = False):
@@ -14,8 +13,8 @@ class FileError(TestError):
         super(FileError, self).__init__("problem with " + filename)
 
 class NetworkError(TestError):
-    def __init__(self):
-        pass
+    def __init__(self, message):
+        super(NetworkError, self).__init__(message)
 
 class ConfigurationError(TestError):
     def __init__(self, filename):
