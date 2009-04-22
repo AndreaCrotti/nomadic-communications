@@ -33,7 +33,7 @@ BADHOST = 1
 BADCONF = 2
 
 # CHANGE here the level of verbosity
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+logging.basicConfig(stream=sys.stdout)
 
 def get_res(root, code):
     """Returns the dictionary of results paths"""
@@ -59,7 +59,7 @@ class TestBattery(object):
         self.test_configs = glob(CONFIGS % "*")
         self.battery = []
         # dictionary containing absolute paths for the results
-        self.analyzer = IperfOutPlain()
+        self.analyzer = IperfClientPlain()
         self.analyzer_server = IperfServer()
         self.root = ROOT % username
         self.remotes = load_remote_config(REMOTES)
@@ -91,7 +91,7 @@ class TestBattery(object):
             if merged in self.battery:      # this works only if == defined correctly
                 print "you have already loaded the configuration in %s, not adding" % conf_file
             else:
-                print "adding configuration in %s" % conf_file
+                logging.info("adding configuration in %s" % conf_file)
                 self.battery.append(merged)
         else:
             print "error in %s, please correct the values" % conf_file
@@ -106,9 +106,8 @@ class TestBattery(object):
     
     def summary(self):
         """Prints the summary of the tests that we will execute"""
-        for i in range(len(self.battery)):
-            banner(str(i) + "):\t" + self.battery[i].codename)
-            print "\n"
+        for i, test in enumerate(self.battery):
+            print str(i) + "):\t" + test.codename + "\n"
 
     def make_subtree(self, root, dirs):
         if not os.path.exists(root):

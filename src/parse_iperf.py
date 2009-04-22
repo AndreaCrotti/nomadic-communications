@@ -5,7 +5,7 @@ import re
 import sys
 from utils import Size
 
-class IperfOutput(object):
+class IperfClient(object):
     """Handling parsing of iperf, getting one line at a time or a file"""
     
     def __init__(self, format):
@@ -29,13 +29,13 @@ class IperfOutput(object):
     def get_values(self):
         return self.result['values']
 
-class IperfOutCsv(IperfOutput):
+class IperfClientCsv(IperfClient):
     """Handling iperf output in csv mode"""
     def __init__(self):
         self.positions = {
             "transfer" : 7, "avg" : 8, "jitter" : 9, "missed" : 10, "total" : 11
         }
-        IperfOutput.__init__(self, format = 'CSV')
+        IperfClient.__init__(self, format = 'CSV')
         self.splitted = lambda line: line.strip().split(',')
     
     def _translate(self, val):
@@ -89,14 +89,14 @@ class IperfServer(object):
             return int(tup[0])
 
 
-class IperfOutPlain(IperfOutput):
+class IperfClientPlain(IperfClient):
     """Handling iperf not in csv mode"""
     def __init__(self):
         self.positions = {
             "transfer" : 3, "avg" : 4, "jitter" : 5, "missed" : 6, "total" : 7
         }
         self.num = re.compile(r"(\d+)(?:\.(\d+))?")
-        IperfOutput.__init__(self, format = 'PLAIN')
+        IperfClient.__init__(self, format = 'PLAIN')
  
     def parse_line(self, line):
         if re.search(r"\bKBytes\b", line):
@@ -114,12 +114,3 @@ class IperfOutPlain(IperfOutput):
             return float('.'.join([tup[0], tup[1]]))
         else:
             return int(tup[0])
-    
-    
-if __name__ == '__main__':
-    files = sys.argv[1:]
-    for n, f in enumerate(files):
-        print "%d) analyzing file %s" % (n, f)
-        i = IperfOutPlain()
-        i.parse_file(open(f))
-        print i.result

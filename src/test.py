@@ -56,7 +56,7 @@ class TestCnf(unittest.TestCase):
     def testApConf(self):
         pass
 
-class TestIperfOut(unittest.TestCase):
+class TestIperfClient(unittest.TestCase):
     def setUp(self):
         self.plain = """
 ------------------------------------------------------------
@@ -79,12 +79,12 @@ UDP buffer size: 9.00 KByte (default)
         self.plain_res = {'avg': 0.19, 'jitter': 0.0060000000000000001, 'missed': 0, 'transfer': 1223, 'values': [122, 122, 122], 'total': 852}
         
     def testPlain(self):
-        i = IperfOutPlain()
+        i = IperfClientPlain()
         for line in self.plain.splitlines():
             i.parse_line(line)
         self.assertEqual(i.result, self.plain_res)
         # now testing with parse_line
-        i2 = IperfOutPlain()
+        i2 = IperfClientPlain()
         # not creating a real file
         f = StringIO.StringIO(self.plain)
         i2.parse_file(f)
