@@ -146,7 +146,8 @@ class MonitorConf(Cnf):
         Cnf.__init__(self, "monitor")
 
     def __str__(self):
-        return "dump command"
+        return ("tcpdump -i %s -c %s -w -" % 
+            (self.conf['interface'], self.conf['num_packets']))
     
     def __getitem__(self, idx):
         if idx == "ssh":

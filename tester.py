@@ -124,13 +124,13 @@ class TestBattery(object):
         try:
             completed = map(lambda x: CONFIGS % x, open(compl_file).read().splitlines())
         except IOError:
-            # if the file is not there creates it and loads everything
+            # loading everything if not present
             open(compl_file, 'w')
             self.load_configs()
         else:
             diff = list(set(self.test_configs).difference(completed))
             diff.sort()
-            # I only load the configs I want to
+            # I only load the missing configs ordered
             self.load_configs(diff)
             self.summary()
 
@@ -138,13 +138,21 @@ class TestBattery(object):
         # TODO battery and _group_auto can be maybe reimplemented using itertools.groupby
         i = 0
         while i < len(self.battery):
+            # CHANGED put single thread
             server = ("iperf", "-s -u -f K -i " + self.battery[i]["iperf"]["interval"].value)
-            monitor = ("tcpdump", " -i eth0 -c 1000 -w -")
+            # This shows that I could even have different monitors for different tests
+            monitors = str(self.battery[i]['monitor'])
             srv = RemoteCommand(outfile = "server.dump", server=True)
             mon = RemoteCommand(outfile = "monitor.dump", server=True)
 
-            srv.connect(**self.remotes['server'])
-            mon.connect(**self.remotes['monitor'])
+            try:
+                srv.connect(**self.remotes['server'])
+                mon.connect(**self.remotes['monitor'])
+            except NetworkError, e:
+                logging.error("not able to start the server or monitor, check your configuration")
+                # having an exit here I would not need to put an else
+                sys.exit(BADHOST)
+            
             srv.run_command(*server)
             mon.run_command(*monitor)
 
@@ -183,6 +191,7 @@ class TestBattery(object):
         print test
         cmd = str(test['iperf'])
         raw_input("Press any key when ready:\n")
+        print "test started, hold on"
         # automatically writes the output to the right place, kind of magic of subprocess
         # time.sleep(2)
         proc = subprocess.Popen(cmd, shell=True, stdout=open("iperf.tmp",'w'), stderr=subprocess.PIPE)
@@ -227,12 +236,18 @@ def usage():
 
 if __name__ == '__main__':
     # TODO implementing a test cleaner
-    opts, args = getopt.getopt(sys.argv[1:], 'cvsh', ['verbose', 'simulate', 'help', 'clean'])
+    opts, args = getopt.getopt(sys.argv[1:], 
+        'cvshd', ['verbose', 'simulate', 'help', 'clean', 'debug'])
     for o, a in opts:
         if o in ('-h', '--help'):
             usage()
+
+        if o in ('-d', '--debug'):
+            logging.getLogger().setLevel(logging.DEBUG)
+
         if o in ('-v', '--verbose'):
-            VERBOSE = True
+            logging.getLogger().setLevel(logging.INFO)
+
         if o in ('-s', '--simulate'):
             SIMULATE = True
 

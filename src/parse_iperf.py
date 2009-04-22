@@ -69,7 +69,7 @@ class IperfServer(object):
         if re.search(r"\bKBytes\b", line):
             nums = self.num.findall(line)
             values = map(self._fun, nums)
-            print "values found %s" % str(values)
+            logging.debug("values found %s" % str(values))
             for s in self.positions.keys():
                 val = values[self.positions[s]]
                 if self.results.has_key(s):

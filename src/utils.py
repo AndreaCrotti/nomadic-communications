@@ -3,6 +3,8 @@ import paramiko
 import logging
 import ConfigParser
 
+from errors import *
+
 def load_remote_config(conf_file):
     c = ConfigParser.ConfigParser()
     c.readfp(open(conf_file))
@@ -11,6 +13,7 @@ def load_remote_config(conf_file):
         hosts[name] = {}
         for opt in c.options(name):
             hosts[name][opt] = c.get(name, opt)
+    logging.debug("getting %s" % hosts)
     return hosts
 
 class RemoteCommand(object):
@@ -37,8 +40,9 @@ class RemoteCommand(object):
             try:
                 # the connection stays open until close()
                 self.ssh.connect(host, **kw)
-            except Exception:
-                logging.error("Not able to connect to %s" % host)
+            except Exception, e:
+                msg = "Not able to connect to %s for reason %s" % (host, e)
+                raise NetworkError(msg)
 
     def run_command(self, cmd, args):
         # the kill command must not be complete
@@ -75,13 +79,6 @@ def send_command(host, command):
     _,o,e = ssh.exec_command(command)
     ssh.close()
     return o.read()
-
-def clear():
-    """Clear the terminal screen, it should be portable in this way"""
-    if sys.platform == 'win32':
-        os.system('cls')
-    else:
-        os.system('clear')
 
 def banner(text, sym="*"):
     start = end = sym * 40
