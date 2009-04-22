@@ -148,19 +148,10 @@ class MonitorConf(Cnf):
         self.opts = "-i %s -c %s -w -" % (self.conf['interface'].value, self.conf['num_packets'].value)
 
     def __str__(self):
-        return ("tcpdump -i %s -c %s -w -" % 
-            (self.conf['interface'].value, self.conf['num_packets'].value))
+        return " ".join([self.cmd, self.opts])
     
     def get_tuple(self):
         return (self.cmd, self.opts)
-        
-class GnuplotConf(Cnf):
-    def __init__(self, conf):
-        """Handling gnuplot configuration"""
-        self.raw_conf = conf
-        par = ["style", "lineswidth"]
-        self.options = dict(zip(par, par))
-        Cnf.__init__(self, "gnuplot")
 
 
 # CHANGED I had to pull opt_conf outside to let shelve pickle work
@@ -169,7 +160,6 @@ opt_conf = {
     "ap"    : lambda x: ApConf(x),
     "client": lambda x: ClientConf(x),
     "monitor": lambda x: MonitorConf(x),
-    "gnuplot": lambda x: GnuplotConf(x)
 }
 
 class Configuration(object):

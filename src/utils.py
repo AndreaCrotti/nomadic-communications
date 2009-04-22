@@ -5,16 +5,25 @@ import ConfigParser
 
 from errors import *
 
-def load_remote_config(conf_file):
+def config_to_dict(conf_file):
     c = ConfigParser.ConfigParser()
     c.readfp(open(conf_file))
-    hosts = {}
+    dic = {}
     for name in c.sections():
-        hosts[name] = {}
+        dic[name] = {}
         for opt in c.options(name):
-            hosts[name][opt] = c.get(name, opt)
-    logging.debug("getting %s" % hosts)
-    return hosts
+            dic[name][opt] = c.get(name, opt)
+    logging.debug("getting %s" % dic)
+    return dic
+
+def get_mon():
+    iperf = ("iperf", "-s -u")
+    tcpdump = ("/usr/sbin/tcpdump", "-i eth0 -c 1000 -w -")
+    r = RemoteCommand(outfile = "mon.dump", server=True)
+    u = config_to_dict("remotes.ini")['monitor']
+    r.connect(**u)
+    r.run_command(*tcpdump)
+    return r
 
 class RemoteCommand(object):
     """Incapsulating the need of launching commands and
@@ -53,21 +62,32 @@ class RemoteCommand(object):
             # in this way I get back the control
             command += " &"
         logging.info("running command %s" % command)
-        _, _, err = self.ssh.exec_command(command)
-        logging.error(err.read())
+        print("running command %s" % command)
+        _,o,e = self.ssh.exec_command(command)
+        out, err = o.read(), e.read()
+        if out:
+            print out
+            logging.info(out)
+        if err:
+            print err
+            logging.error(err)
     
     def get_output(self, remote_file):
         ftp = self.ssh.open_sftp()
         logging.info("downloading file %s to %s" % (self.outfile, remote_file))
         ftp.get(self.outfile, remote_file)
         
-    def close(self):
+    def close(self, kill=False):
         kill = "killall %s" % self.killcmd
         logging.info("executing %s" % kill)
-        _, o, e = self.ssh.exec_command(kill)
-        logging.info(o.read())
-        logging.error(e.read())
-        # close and kill the command if still running
+        if kill:
+            _, o, e = self.ssh.exec_command(kill)
+            out, err, = o.read(), e.read()
+            if err:
+                logging.error(e.read())
+            if out:
+                logging.info(o.read())
+            # close and kill the command if still running
         self.ssh.close()
 
 def send_command(host, command):

@@ -22,11 +22,9 @@ from src.vars import *
 from src.analyze import *
 from src.errors import *
 
-TCPDUMP_CMD = "tcpdump -i %s -c %s -w"
 # global flags
 SIMULATE = False
 VERBOSE = False
-
 
 # exit codes FIXME, avoid it use exceptions
 BADHOST = 1
@@ -34,6 +32,8 @@ BADCONF = 2
 
 # CHANGE here the level of verbosity
 logging.basicConfig(stream=sys.stdout)
+# to avoid extra modules logging
+logging.getLogger().addFilter(logging.Filter("root"))
 
 def get_res(root, code):
     """Returns the dictionary of results paths"""
@@ -62,7 +62,7 @@ class TestBattery(object):
         self.analyzer = IperfClientPlain()
         self.analyzer_server = IperfServer()
         self.root = ROOT % username
-        self.remotes = load_remote_config(REMOTES)
+        self.remotes = config_to_dict(REMOTES)
 
     def is_consistent(self, conf):
         """Checking if configuration loaded is consistent with default configuration"""
@@ -141,8 +141,8 @@ class TestBattery(object):
             server = ("iperf", "-s -u -f K -i " + self.battery[i]["iperf"]["interval"].value)
             # This shows that I could even have different monitors for different tests
             monitor = self.battery[i]['monitor'].get_tuple()
-            srv = RemoteCommand(outfile = "server.dump", server=True)
-            mon = RemoteCommand(outfile = "monitor.dump", server=True)
+            srv = RemoteCommand(outfile = SERVER_RESULT, server=True)
+            mon = RemoteCommand(outfile = DUMP, server=True)
 
             try:
                 srv.connect(**self.remotes['server'])
@@ -170,14 +170,14 @@ class TestBattery(object):
                 elif a == 's':
                     i += 1
             else:
-                srv.get_output("server.tmp")
-                mon.get_output("dump.tmp")
+                srv.get_output(SERVER_RESULT)
+                mon.get_output(DUMP)
                 self.write_results(self.battery[i])
                 logging.info("test %s done" % self.battery[i].codename)
                 i += 1
             finally:
                 # always closing the ssh connections (and killing commands also)
-                srv.close()
+                srv.close(kill=True)
                 mon.close()
 
     def run_test(self, test):
@@ -202,9 +202,9 @@ class TestBattery(object):
         """Finally writes the results of the test in the right directories"""
         res_dict = get_res(self.root, test.codename)
         # saving the dump file
-        shutil.move("dump.tmp", res_dict["dump"])
-        shutil.move("iperf.tmp", res_dict["iperf_client"])
-        shutil.move("server.tmp", res_dict["iperf_server"])
+        shutil.copy(DUMP, res_dict["dump"])
+        shutil.copy("iperf.tmp", res_dict["iperf_client"])
+        shutil.copy(SERVER_RESULT, res_dict["iperf_server"])
         self.analyzer.parse_file(open(res_dict["iperf_client"], 'r'))
         self.analyzer_server.parse_file(open(res_dict["iperf_server"], 'r'))
         test.to_ini(open(res_dict["full_conf"], 'w'))

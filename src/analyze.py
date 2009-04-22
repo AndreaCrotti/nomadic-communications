@@ -4,7 +4,6 @@
 # = analysing tests =
 # ===================
 
-import shelve
 import getopt
 import re
 from errors import *
@@ -30,7 +29,6 @@ except ImportError, i:
     print "you will be unable to plot"
     GNUPLOT = False
     
-DUMP = "traffic/traffic.out"
 
 # A few important things to analyze to get can be
 # Length of the packet

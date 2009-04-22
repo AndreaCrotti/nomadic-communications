@@ -15,3 +15,6 @@ CONFIGS = "configs/%s.ini"
 
 REMOTES = "remotes.ini"
 DEFAULT = "default.ini"
+
+DUMP = "tcpdump.out"
+SERVER_RESULT = "iperf.out"
