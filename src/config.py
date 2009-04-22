@@ -145,11 +145,11 @@ class MonitorConf(Cnf):
         self.options = dict(zip(par, par))
         Cnf.__init__(self, "monitor")
         self.cmd = "tcpdump"
-        self.opts = "-i %s -c %s -w -" % (self.conf['interface'], self.conf['num_packets'])
+        self.opts = "-i %s -c %s -w -" % (self.conf['interface'].value, self.conf['num_packets'].value)
 
     def __str__(self):
         return ("tcpdump -i %s -c %s -w -" % 
-            (self.conf['interface'], self.conf['num_packets']))
+            (self.conf['interface'].value, self.conf['num_packets'].value))
     
     def get_tuple(self):
         return (self.cmd, self.opts)
