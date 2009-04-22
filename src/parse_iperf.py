@@ -3,6 +3,7 @@
 
 import re
 import sys
+import logging
 from utils import Size
 
 class IperfClient(object):

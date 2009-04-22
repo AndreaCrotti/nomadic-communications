@@ -144,16 +144,15 @@ class MonitorConf(Cnf):
         par = ["host", "interface", "num_packets"]
         self.options = dict(zip(par, par))
         Cnf.__init__(self, "monitor")
+        self.cmd = "tcpdump"
+        self.opts = "-i %s -c %s -w -" % (self.conf['interface'], self.conf['num_packets'])
 
     def __str__(self):
         return ("tcpdump -i %s -c %s -w -" % 
             (self.conf['interface'], self.conf['num_packets']))
     
-    def __getitem__(self, idx):
-        if idx == "ssh":
-            return self.ssh
-        else:
-            return Cnf.__getitem__(self, idx)
+    def get_tuple(self):
+        return (self.cmd, self.opts)
         
 class GnuplotConf(Cnf):
     def __init__(self, conf):

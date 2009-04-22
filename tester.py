@@ -140,7 +140,7 @@ class TestBattery(object):
             # CHANGED put single thread
             server = ("iperf", "-s -u -f K -i " + self.battery[i]["iperf"]["interval"].value)
             # This shows that I could even have different monitors for different tests
-            monitors = str(self.battery[i]['monitor'])
+            monitor = self.battery[i]['monitor'].get_tuple()
             srv = RemoteCommand(outfile = "server.dump", server=True)
             mon = RemoteCommand(outfile = "monitor.dump", server=True)
 
