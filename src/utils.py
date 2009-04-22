@@ -1,4 +1,61 @@
 import sys, os, subprocess
+import paramiko
+import logging
+import ConfigParser
+
+def load_remote_config(conf_file):
+    c = ConfigParser.ConfigParser()
+    c.readfp(open(conf_file))
+    hosts = {}
+    for name in c.sections():
+        hosts[name] = {}
+        for opt in c.options(name):
+            hosts[name][opt] = c.get(name, opt)
+    return hosts
+
+class RemoteCommand(object):
+    """Incapsulating the need of launching commands and
+    getting the output"""
+    def __init__(self, outfile="dump"):
+        self.outfile = outfile
+        self.ssh = paramiko.SSHClient()
+        # this should be enough for the server key
+        self.ssh.load_system_host_keys()
+    
+    def connect(self, host, user, password, port=22):
+        try:
+            # the connection remains open
+            self.ssh.connect(host, port=port, username=user, password=password)
+        except Exception:
+            logging.error("Not able to connect to %s" % host)
+
+    def run_command(self, cmd, args):
+        self.cmd = command
+        command += " > %s" % self.outfile
+        logging.info("running command %s" % command)
+        self.ssh.exec_command(command)
+    
+    def get_output(self, remote_file):
+        ftp = self.ssh.open_sftp()
+        logging.info("downloading file %s to %s" % (self.outfile, remote_file))
+        ftp.get(self.outfile, remote_file)
+        
+    def close(self):
+        kill = "killall %s" % self.cmd
+        logging.info("executing %s" % kill)
+        self.ssh.exec_command(kill)
+        # close and kill the command if still running
+        self.ssh.close()
+
+def send_command(host, command):
+    """Sending a command and returning the output"""
+    ssh = paramiko.SSHClient()
+    # this should be always enough, otherwise add it manually
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(host, username="root", password="condor", port=22) #pkey=open("/Users/andrea/.ssh/andrea").read(), 
+    _,o,e = ssh.exec_command(command)
+    ssh.close()
+    return o.read()
 
 def clear():
     """Clear the terminal screen, it should be portable in this way"""
@@ -34,11 +91,6 @@ def check_remote(host, user = None, command = ""):
             return False
     else:
         return (subprocess.Popen(remote(host, 'ls'), shell=True, stdout = subprocess.PIPE).wait() == 0)
-    
-
-def remote(host, command):
-    """Making a remote command"""
-    return " ".join(["ssh", host, command])
 
 # FIXME wait until the end, spawn the process maybe
 def play(message):
