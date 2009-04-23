@@ -5,6 +5,14 @@ import ConfigParser
 
 from errors import *
 
+class ParamikoFilter(logging.Filter):
+    def __init__(self, name='root'):
+        """ By default everything is left passing"""
+        logging.Filter.__init__(self, name)
+    
+    def filter(self, rec):
+        return self.name == 'root'
+
 def config_to_dict(conf_file):
     c = ConfigParser.ConfigParser()
     c.readfp(open(conf_file))
@@ -18,11 +26,12 @@ def config_to_dict(conf_file):
 
 def get_mon():
     iperf = ("iperf", "-s -u")
-    tcpdump = ("/usr/sbin/tcpdump", "-i eth0 -c 1000 -w -")
-    r = RemoteCommand(outfile = "mon.dump", server=True)
+    tcpdump = ("tcpdump", "-i eth0 -c 1000 -w")
+    ls = ("ls", "-lR")
+    r = RemoteCommand(outfile = "mon.dump", server=False)
     u = config_to_dict("remotes.ini")['monitor']
     r.connect(**u)
-    r.run_command(*tcpdump)
+    r.run_command(*ls)
     return r
 
 class RemoteCommand(object):
@@ -99,6 +108,13 @@ def send_command(host, command):
     _,o,e = ssh.exec_command(command)
     ssh.close()
     return o.read()
+    
+def tuple_to_num(tup):
+    """Taking float numbers in a list of tuples"""
+    if tup[1]:
+        return float('.'.join([tup[0], tup[1]]))
+    else:
+        return int(tup[0])
 
 def banner(text, sym="*"):
     start = end = sym * 40
