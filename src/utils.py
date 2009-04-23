@@ -2,8 +2,34 @@ import sys, os, subprocess
 import paramiko
 import logging
 import ConfigParser
+import re
 
+from vars import *
 from errors import *
+
+def get_codename(test_file):
+    """
+    Getting the codename from a whatever, using global variables
+    """
+    for el in RESULTS.values():
+        # Unreliable but working pretty well
+        reg = re.compile("(.*)".join(el.split("%s")))
+        found = r.search(test_file)
+        if found:
+            return found.groups()[0]
+    return None
+
+def get_tests(user):
+    """
+        Get the tests done by the user, loading file
+        completed in the root result folder
+    """
+    completed = os.path.join(ROOT % user, COMPLETED)
+    try:
+        return open(completed).read().splitlines()
+    except IOError:
+        print "not possible to find the completed tests file"
+        
 
 class ParamikoFilter(logging.Filter):
     def __init__(self, name='root'):
@@ -26,12 +52,12 @@ def config_to_dict(conf_file):
 
 def get_mon():
     iperf = ("iperf", "-s -u")
-    tcpdump = ("tcpdump", "-i eth0 -c 1000 -w")
+    tcpdump = ("nohup tcpdump", "-i eth0 -c 1000 -w")
     ls = ("ls", "-lR")
-    r = RemoteCommand(outfile = "mon.dump", server=False)
+    r = RemoteCommand(outfile = "mon.dump", server=True)
     u = config_to_dict("remotes.ini")['monitor']
     r.connect(**u)
-    r.run_command(*ls)
+    r.run_command(*tcpdump)
     return r
 
 class RemoteCommand(object):
@@ -51,6 +77,7 @@ class RemoteCommand(object):
         except KeyError:
             logging.error("Host key is really needed")
         if kw.has_key('port'):
+            # FIXME int conversion not enough?
             # an int is needed for port number
             kw['port'] = int(kw['port'])
         else:
@@ -66,7 +93,7 @@ class RemoteCommand(object):
         # the kill command must not be complete
         # FIXME using the PID instead
         self.killcmd = cmd
-        command = " ".join([cmd, args, "> %s" % self.outfile])
+        command = " ".join([cmd, args, " %s" % self.outfile])
         if self.server:
             # in this way I get back the control
             command += " &"
