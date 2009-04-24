@@ -7,6 +7,16 @@ import re
 from vars import *
 from errors import *
 
+def latex_table(text, length):
+    aligns = "{" + "l || " + "|".join(["c"] * (length -1)) + "}"
+    begin = r"\begin{tabular}" + aligns
+    end = r"\end{tabular}"
+    return "\n".join([begin, text, end])
+
+def tests_to_latex(tests, pars):
+    lines = "\n".join([t.latex_line(pars) for t in tests])
+    return latex_table(lines, len(pars))
+
 def get_codename(test_file):
     """
     Getting the codename from a whatever, using global variables
@@ -19,12 +29,17 @@ def get_codename(test_file):
             return found.groups()[0]
     return None
 
+def get_tests_configs(user):
+    codenames = get_tests(user)
+    
+    return [Configuration()]
+
 def get_tests(user):
     """
         Get the tests done by the user, loading file
         completed in the root result folder
     """
-    completed = os.path.join(ROOT % user, COMPLETED)
+    completed = os.path.join("..", ROOT % user, COMPLETED)
     try:
         return open(completed).read().splitlines()
     except IOError:

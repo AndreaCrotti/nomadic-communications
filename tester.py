@@ -13,7 +13,6 @@ import logging
 
 from glob import glob
 from getopt import getopt
-from copy import deepcopy
 from src.parse_iperf import *
 from src.config import *
 from src.utils import *

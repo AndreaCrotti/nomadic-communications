@@ -1,10 +1,8 @@
 import re
-import sys
 import ConfigParser
 from copy import deepcopy
 # TODO must take off this
 from opts import *
-from tester import *
 
 class Cnf(object):
     def __init__(self, name):
@@ -18,11 +16,11 @@ class Cnf(object):
             self.non_show_opt = []
         else:
             self.non_show_opt = list(set(self.conf.keys()) - set(self.show_opt))
+        self.intersect = set(self.show_opt).intersection(self.conf.keys())
     
     # TODO Check if it's the best representation possible
     def __str__(self):
-        intersect = set(self.show_opt).intersection(self.conf.keys())
-        return ';\t'.join([str(self.conf[k]) for k in intersect])
+        return ';\t'.join([str(self.conf[k]) for k in self.intersect])
     
     def __repr__(self):
         return str(self)
@@ -60,25 +58,7 @@ class Cnf(object):
                 else:
                     subt.conf[key] = other.conf[key]
         return subt
-
-    def keys(self):
-        return self.conf.iterkeys()
-    
-    def is_empty(self):
-        return self.conf == {}
-    
-    def issubset(self, other):
-        return set(self.conf.keys()).issubset(other.conf.keys())
-    
-    def to_min(self):
-        """Gets the minimal Cnf, without choices and taking off null values"""
-        not_nulls = filter(lambda x: self.conf[x].value != '', self.conf.keys())
-        return dict(zip(not_nulls, [self.conf[key] for key in not_nulls]))
-
-    def to_latex(self):
-        """Returns a string representing the configuration in latex"""
-        pass
-
+        
     def to_conf(self):
         for key in self.raw_conf.keys():
             v = self.raw_conf[key]
@@ -221,6 +201,25 @@ class Configuration(object):
         
     def __iter__(self):
         return self.conf.iterkeys()
+        
+    def latex_line(self, parameters):
+        """Get a latex table line representing configuration
+        Takes a list of parameters in form
+        section.parameter, for example "iperf.speed"
+        """
+        def emph(el):
+            return (r"\textbf{%s}" % el)
+
+        def make_line(els):
+            line = r"\hline" + "\n%s\t" + r"\\" + "\n"
+            result = []
+            for el in els:
+                result.append(el)
+            return line % (" & ".join(result))
+
+        els = [emph(self.codename)] + [self.conf[x][y].value for x, y in map(lambda x: x.split('.'), parameters)]
+        return make_line(els)
+
 
     def to_min(self):
         """Returns a new dictionary with only not null keys"""
@@ -236,9 +235,6 @@ class Configuration(object):
             for key, val in opt.items():
                 writer.set(sec, key, val.value)
         writer.write(conf_file)
-
-    def keys(self):
-        return self.conf.iterkeys()
                     
     def from_ini(self, conf_file):
         """Creates a configuration reading the ini file passed"""
