@@ -89,7 +89,8 @@ class RemoteCommand(object):
         self.server = server
         # this should be enough for the server key
         self.ssh.load_system_host_keys()
-    
+        self.killcmd = None
+
     def connect(self, **kw):
         try:
             # so I also take it off the dictionary
@@ -113,7 +114,7 @@ class RemoteCommand(object):
         # the kill command must not be complete
         # FIXME using the PID instead
         self.killcmd = cmd
-        command = " ".join([cmd, args, " %s" % self.outfile])
+        command = " ".join([cmd, args, "> %s" % self.outfile])
         if self.server:
             # in this way I get back the control
             command += " &"
@@ -134,16 +135,17 @@ class RemoteCommand(object):
         ftp.get(self.outfile, remote_file)
         
     def close(self, kill=False):
-        kill = "killall %s" % self.killcmd
-        logging.info("executing %s" % kill)
-        if kill:
-            _, o, e = self.ssh.exec_command(kill)
-            out, err, = o.read(), e.read()
-            if err:
-                logging.error(e.read())
-            if out:
-                logging.info(o.read())
-            # close and kill the command if still running
+        if self.killcmd:
+            kill = "killall %s" % self.killcmd
+            logging.info("executing %s" % kill)
+            if kill:
+                _, o, e = self.ssh.exec_command(kill)
+                out, err, = o.read(), e.read()
+                if err:
+                    logging.error(e.read())
+                if out:
+                    logging.info(o.read())
+                # close and kill the command if still running
         self.ssh.close()
 
 def send_command(host, command):

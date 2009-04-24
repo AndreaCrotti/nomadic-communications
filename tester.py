@@ -140,6 +140,7 @@ class TestBattery(object):
             server = ("iperf", "-s -u -f K -i " + self.battery[i]["iperf"]["interval"].value)
             # This shows that I could even have different monitors for different tests
             monitor = self.battery[i]['monitor'].get_tuple()
+            mon_cmd = "ssh " + self.battery[i]['monitor']['host'].value + " \"" + str(self.battery[i]['monitor']) + " " + DUMP + "\" &"
             srv = RemoteCommand(outfile = SERVER_RESULT, server=True)
             mon = RemoteCommand(outfile = DUMP, server=True)
 
@@ -152,7 +153,9 @@ class TestBattery(object):
                 sys.exit(BADHOST)
             
             srv.run_command(*server)
-            mon.run_command(*monitor)
+            # mon.run_command(*monitor)
+            print "running as monitor %s" % mon_cmd
+            subprocess.Popen(mon_cmd, shell=True)
 
             if SIMULATE:
                 print "only simulating %s" % str(self.battery[i])
@@ -170,6 +173,7 @@ class TestBattery(object):
                     i += 1
             else:
                 srv.get_output(SERVER_RESULT)
+                # getting the output anyway even if launched outside paramiko
                 mon.get_output(DUMP)
                 self.write_results(self.battery[i])
                 logging.info("test %s done" % self.battery[i].codename)

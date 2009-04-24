@@ -58,7 +58,16 @@ class Cnf(object):
                 else:
                     subt.conf[key] = other.conf[key]
         return subt
-        
+    
+    def keys(self):
+        return self.conf.iterkeys()
+    
+    def to_min(self):
+        """Gets the minimal Cnf, without choices and taking off null values"""
+        not_nulls = filter(lambda x: self.conf[x].value != '', self.conf.keys())
+        return dict(zip(not_nulls, [self.conf[key] for key in not_nulls]))
+
+     
     def to_conf(self):
         for key in self.raw_conf.keys():
             v = self.raw_conf[key]
@@ -125,7 +134,7 @@ class MonitorConf(Cnf):
         self.options = dict(zip(par, par))
         Cnf.__init__(self, "monitor")
         self.cmd = "tcpdump"
-        self.opts = "-i %s -c %s -w -" % (self.conf['interface'].value, self.conf['num_packets'].value)
+        self.opts = "-i %s -c %s -w" % (self.conf['interface'].value, self.conf['num_packets'].value)
 
     def __str__(self):
         return " ".join([self.cmd, self.opts])
@@ -200,6 +209,9 @@ class Configuration(object):
         return merged
         
     def __iter__(self):
+        return self.conf.iterkeys()
+        
+    def keys(self):
         return self.conf.iterkeys()
         
     def latex_line(self, parameters):
