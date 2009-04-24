@@ -6,6 +6,7 @@ import re
 
 from vars import *
 from errors import *
+from config import Configuration
 
 def latex_table(text, length):
     aligns = "{" + "l || " + "|".join(["c"] * (length -1)) + "}"
@@ -31,8 +32,12 @@ def get_codename(test_file):
 
 def get_tests_configs(user):
     codenames = get_tests(user)
-    
-    return [Configuration()]
+    base = os.path.join("..", ROOT %  user)
+    configs = []
+    for code in codenames:
+        full_conf = os.path.join(base, "full_conf", RESULTS["full_conf"] % code)
+        configs.append(Configuration(full_conf, code))
+    return configs
 
 def get_tests(user):
     """
