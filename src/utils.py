@@ -2,8 +2,62 @@ import sys, os, subprocess
 import paramiko
 import logging
 import ConfigParser
+import re
 
+from vars import *
 from errors import *
+from config import Configuration
+
+def latex_table(text, length):
+    aligns = "{" + "l || " + "|".join(["c"] * (length -1)) + "}"
+    begin = r"\begin{tabular}" + aligns
+    end = r"\end{tabular}"
+    return "\n".join([begin, text, end])
+
+def tests_to_latex(tests, pars):
+    lines = "\n".join([t.latex_line(pars) for t in tests])
+    return latex_table(lines, len(pars))
+
+def get_codename(test_file):
+    """
+    Getting the codename from a whatever, using global variables
+    """
+    for el in RESULTS.values():
+        # Unreliable but working pretty well
+        reg = re.compile("(.*)".join(el.split("%s")))
+        found = r.search(test_file)
+        if found:
+            return found.groups()[0]
+    return None
+
+def get_tests_configs(user):
+    codenames = get_tests(user)
+    base = os.path.join("..", ROOT %  user)
+    configs = []
+    for code in codenames:
+        full_conf = os.path.join(base, "full_conf", RESULTS["full_conf"] % code)
+        configs.append(Configuration(full_conf, code))
+    return configs
+
+def get_tests(user):
+    """
+        Get the tests done by the user, loading file
+        completed in the root result folder
+    """
+    completed = os.path.join("..", ROOT % user, COMPLETED)
+    try:
+        return open(completed).read().splitlines()
+    except IOError:
+        print "not possible to find the completed tests file"
+        
+
+class ParamikoFilter(logging.Filter):
+    def __init__(self, name='root'):
+        """ By default everything is left passing"""
+        logging.Filter.__init__(self, name)
+    
+    def filter(self, rec):
+        return self.name == 'root'
 
 def config_to_dict(conf_file):
     c = ConfigParser.ConfigParser()
@@ -16,15 +70,6 @@ def config_to_dict(conf_file):
     logging.debug("getting %s" % dic)
     return dic
 
-def get_mon():
-    iperf = ("iperf", "-s -u")
-    tcpdump = ("/usr/sbin/tcpdump", "-i eth0 -c 1000 -w -")
-    r = RemoteCommand(outfile = "mon.dump", server=True)
-    u = config_to_dict("remotes.ini")['monitor']
-    r.connect(**u)
-    r.run_command(*tcpdump)
-    return r
-
 class RemoteCommand(object):
     """Incapsulating the need of launching commands and
     getting the resulting output"""
@@ -34,7 +79,8 @@ class RemoteCommand(object):
         self.server = server
         # this should be enough for the server key
         self.ssh.load_system_host_keys()
-    
+        self.killcmd = None
+
     def connect(self, **kw):
         try:
             # so I also take it off the dictionary
@@ -42,6 +88,7 @@ class RemoteCommand(object):
         except KeyError:
             logging.error("Host key is really needed")
         if kw.has_key('port'):
+            # FIXME int conversion not enough?
             # an int is needed for port number
             kw['port'] = int(kw['port'])
         else:
@@ -53,7 +100,11 @@ class RemoteCommand(object):
                 msg = "Not able to connect to %s for reason %s" % (host, e)
                 raise NetworkError(msg)
 
-    def run_command(self, cmd, args):
+    def run_command(self, cmd):
+        logging.info("running command %s" % cmd)
+        self.ssh.exec_command(cmd)
+
+    def run_server(self, cmd, args):
         # the kill command must not be complete
         # FIXME using the PID instead
         self.killcmd = cmd
@@ -78,16 +129,17 @@ class RemoteCommand(object):
         ftp.get(self.outfile, remote_file)
         
     def close(self, kill=False):
-        kill = "killall %s" % self.killcmd
-        logging.info("executing %s" % kill)
-        if kill:
-            _, o, e = self.ssh.exec_command(kill)
-            out, err, = o.read(), e.read()
-            if err:
-                logging.error(e.read())
-            if out:
-                logging.info(o.read())
-            # close and kill the command if still running
+        if self.killcmd:
+            kill = "killall %s" % self.killcmd
+            logging.info("executing %s" % kill)
+            if kill:
+                _, o, e = self.ssh.exec_command(kill)
+                out, err, = o.read(), e.read()
+                if err:
+                    logging.error(e.read())
+                if out:
+                    logging.info(o.read())
+                # close and kill the command if still running
         self.ssh.close()
 
 def send_command(host, command):
@@ -99,6 +151,13 @@ def send_command(host, command):
     _,o,e = ssh.exec_command(command)
     ssh.close()
     return o.read()
+    
+def tuple_to_num(tup):
+    """Taking float numbers in a list of tuples"""
+    if tup[1]:
+        return float('.'.join([tup[0], tup[1]]))
+    else:
+        return int(tup[0])
 
 def banner(text, sym="*"):
     start = end = sym * 40

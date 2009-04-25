@@ -4,7 +4,7 @@
 import re
 import sys
 import logging
-from utils import Size
+from utils import Size, tuple_to_num
 
 class IperfClient(object):
     """Handling parsing of iperf, getting one line at a time or a file"""
@@ -53,6 +53,25 @@ class IperfClientCsv(IperfClient):
             self.result["transfer"] = self._translate(self.result["transfer"])
         # otherwise automatically do nothing, empty line probably
 
+class IperfClientPlain(IperfClient):
+    """Handling iperf not in csv mode"""
+    def __init__(self):
+        self.positions = {
+            "transfer" : 3, "avg" : 4, "jitter" : 5, "missed" : 6, "total" : 7
+        }
+        self.num = re.compile(r"(\d+)(?:\.(\d+))?")
+        IperfClient.__init__(self, format = 'PLAIN')
+ 
+    def parse_line(self, line):
+        if re.search(r"\bKBytes\b", line):
+            nums = self.num.findall(line)
+            values = map(tuple_to_num, nums)
+            if re.search(r"\bms\b", line):
+                for p in self.positions.keys():
+                    self.result[p] = values[self.positions[p]]
+            else:
+                self.result['values'].append(values[-1])
+
 class IperfServer(object):
     def __init__(self):
         self.positions = {
@@ -69,7 +88,7 @@ class IperfServer(object):
     def parse_line(self, line):
         if re.search(r"\bKBytes\b", line):
             nums = self.num.findall(line)
-            values = map(self._fun, nums)
+            values = map(tuple_to_num, nums)
             logging.debug("values found %s" % str(values))
             for s in self.positions.keys():
                 val = values[self.positions[s]]
@@ -81,37 +100,3 @@ class IperfServer(object):
     def get_values(self, field = 'value'):
         # leaving exception handling outside
         return self.results[field]
-
-    def _fun(self, tup):
-        """Taking float numbers in a list of tuples"""
-        if tup[1]:
-            return float('.'.join([tup[0], tup[1]]))
-        else:
-            return int(tup[0])
-
-
-class IperfClientPlain(IperfClient):
-    """Handling iperf not in csv mode"""
-    def __init__(self):
-        self.positions = {
-            "transfer" : 3, "avg" : 4, "jitter" : 5, "missed" : 6, "total" : 7
-        }
-        self.num = re.compile(r"(\d+)(?:\.(\d+))?")
-        IperfClient.__init__(self, format = 'PLAIN')
- 
-    def parse_line(self, line):
-        if re.search(r"\bKBytes\b", line):
-            nums = self.num.findall(line)
-            values = map(self._fun, nums)
-            if re.search(r"\bms\b", line):
-                for p in self.positions.keys():
-                    self.result[p] = values[self.positions[p]]
-            else:
-                self.result['values'].append(values[-1])
-    
-    def _fun(self, tup):
-        """Taking float numbers in a list of tuples"""
-        if tup[1]:
-            return float('.'.join([tup[0], tup[1]]))
-        else:
-            return int(tup[0])

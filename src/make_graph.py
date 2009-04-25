@@ -21,7 +21,11 @@ def usage():
     """
     sys.exit(0)
 
+def add_data(conf, user, value):
+    pass
+
 def make_plot(files):
+    """Putting a list _values function"""
     p = Plotter(NAME, 'kbs')
     for test in files:
         base = os.path.basename(test)

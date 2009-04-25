@@ -17,4 +17,7 @@ REMOTES = "remotes.ini"
 DEFAULT = "default.ini"
 
 DUMP = "tcpdump.out"
-SERVER_RESULT = "iperf.out"
+SERVER_RESULT = "iperf_server.out"
+CLIENT_RESULT = "iperf_client.out"
+
+GNUPLOT_CONF = "gnuplot.ini"
