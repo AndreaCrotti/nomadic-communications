@@ -42,8 +42,26 @@
 	
 	The total header cost in terms of bytes is fixed to 32 bytes (octets) over a variable size of the frame body from 0 to 2304 bytes plus any overhead from security encapsulation. The frame body size is determined by the maximum MSDU + ICV + IV , where ICV (Integrity Check Value) and IV (Initialization Vector) need to WEP and MSDU is the Mac Service Data Unit. Therefore the real throughput depends by frame body length.\\
 	
-	To calculate the teorical throughput in the case of 802.11b we have to consider the theoretical throughput of DSSS
-		
+	\begin{figure}[h!]
+		\includegraphics[angle=0, keepaspectratio=true, width=15cm]{images/ppdu_frame_format}
+		\caption{PPDU Frame Format}
+		\label{ppdu_frame_packet}
+	\end{figure}
+	
+	To calculate the teorical throughput we have to follow the two formulas written below:
+	
+	\begin{gather*}
+		Throughput_{FIS} = \\\\
+		= \frac{ ( DATA_{bit} + HEADER\ IP_{bit} + HEADER\ UDP_{bit} + HEADER\ MAC_{bit} ) x 8 }{ FRAME_{seconds} } = \\\\
+		= \frac{ 1532 x 8 }{  FRAME_{seconds} } \\\\
+	\end{gather*}
+	
+	\begin{gather*}
+		Throughput_{UDP} = \frac{ DATA_{bit} x 8 }{ FRAME_{seconds} } = \frac{ 1470 x 8 }{  FRAME_{seconds} } \\\\
+	\end{gather*}
+	
+	Here we have an example theoretical throughput of the two standard at two different speed:
+	
 	\begin{table}[h!]
 		\begin{tabularx}{15cm}{ | X | X | X | X | X | }
 			\hline
@@ -63,7 +81,7 @@
 			\hline
 				HEADER IP + UDP & 40.73 ?s & 20.36 ?s & 37.33 ?s & 4.15 ?s \\
 			\hline
-				DATA & 2138.18 ?s & 1069.09 ?s & 1960 ?s & 217.78 \\
+				DATA (1470 byte)& 2138.18 ?s & 1069.09 ?s & 1960 ?s & 217.78 \\
 			\hline
 				TAIL DATA & -- & -- & 1 ?s & 0.11 ?s \\
 			\hline
@@ -74,19 +92,19 @@
 				TAIL ACK & -- & -- & 1 ?s & 0.25 ?s \\
 			\hline
 			\hline
-				TOTAL & 2813.63 ?s & 1687.81 & 2295.5 & 459.19 \\
+				TOTAL & 2813.63 ?s & 1687.81?s & 2295.5 ?s & 459.19 ?s \\
+			\hline
+			\hline
+				TEORETICAL FISIC THROUGHPUT & 4.35 Mbit/s ?s & 7.26 Mbit/s & 5.33 Mbit/s & 26.69 Mbit/s \\
+			\hline
+			\hline
+				TEORETICAL FISIC THROUGHPUT UDP & 4.17 Mbit/s & 6.96 Mbit/s & 5.12 Mbit/s & 25.61 Mbit/s \\
 			\hline
 			
 		\end{tabularx}
 	\end{table}
 	
-	
-	\begin{gather*}
-		Throughput_{FIS\ UDP} = \\\\
-		= \frac{ ( DATA_{bit} + HEADER\ IP_{bit} + HEADER\ UDP_{bit} + HEADER\ MAC_{bit} ) x 8 }{ FRAME_{seconds} } = \\\\
-		= \frac{ 1532 x 8 }{  FRAME_{seconds} } \\\\
-	\end{gather*}
-
+	boo
 	
 % Calculate protocols upperbound limitations and similar things (report the formulas!).
 % DO NOT USE PROFESSOR SLIDES AS SOURCE OF INFORMATIONS SINCE MOST OF VALUES ARE COMPLETELY WRONG!!!!!!!!!
