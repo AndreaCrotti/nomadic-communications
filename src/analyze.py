@@ -7,6 +7,8 @@
 import getopt
 import re
 from errors import *
+from utils import *
+from vars import *
 
 # SCAPY = True
 # try:
@@ -21,19 +23,15 @@ try:
 except ImportError, i:
     print "not able to do the statistical analysis"
     STAT = False
-
-GNUPLOT = True
-try:
-    import Gnuplot
-except ImportError, i:
-    print "you will be unable to plot"
-    GNUPLOT = False
     
 
 # A few important things to analyze to get can be
 # Length of the packet
 # Arrival time
 # Payload
+
+def gnuplot_conf():
+    return config_to_dict(GNUPLOT_CONF)
 
 class Plotter(object):
     """Class for plotting during testing"""
@@ -50,6 +48,10 @@ class Plotter(object):
         self.plotter.set_label('xlabel', "step")
         self.plotter.set_label('ylabel', self.value)
 
+    def load_conf(self, conf_file):
+        """Loading a gnuplot configuration file"""
+        self.plotter.load(conf_file)
+
     def add_data(self, data, name):
         """Add another data set"""
         # always keeping last maxGraphs elements in the item list and redraw them
@@ -64,6 +66,12 @@ class Plotter(object):
     def save(self, filename):
         print "saving graph to %s" % filename
         self.plotter.hardcopy(filename=filename, eps=True, color=True)
+
+def mean(data):
+    return stats.mean(data)
+
+def stdev(data):
+    return stats.stdev(data)
 
 
 class StatData(object):

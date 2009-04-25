@@ -70,16 +70,6 @@ def config_to_dict(conf_file):
     logging.debug("getting %s" % dic)
     return dic
 
-def get_mon():
-    iperf = ("iperf", "-s -u")
-    tcpdump = ("nohup tcpdump", "-i eth0 -c 1000 -w")
-    ls = ("ls", "-lR")
-    r = RemoteCommand(outfile = "mon.dump", server=True)
-    u = config_to_dict("remotes.ini")['monitor']
-    r.connect(**u)
-    r.run_command(*tcpdump)
-    return r
-
 class RemoteCommand(object):
     """Incapsulating the need of launching commands and
     getting the resulting output"""
