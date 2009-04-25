@@ -110,7 +110,11 @@ class RemoteCommand(object):
                 msg = "Not able to connect to %s for reason %s" % (host, e)
                 raise NetworkError(msg)
 
-    def run_command(self, cmd, args):
+    def run_command(self, cmd):
+        logging.info("running command %s" % cmd)
+        self.ssh.exec_command(cmd)
+
+    def run_server(self, cmd, args):
         # the kill command must not be complete
         # FIXME using the PID instead
         self.killcmd = cmd

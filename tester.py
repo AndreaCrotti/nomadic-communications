@@ -136,7 +136,11 @@ class TestBattery(object):
         # TODO battery and _group_auto can be maybe reimplemented using itertools.groupby
         i = 0
         while i < len(self.battery):
-            # CHANGED put single thread
+            if SIMULATE:
+                print "setting minimal timings"
+                self.battery[i]['iperf']['time'].set("10")
+                self.battery[i]['iperf']['interval'].set("1")
+                
             server = ("iperf", "-s -u -f K -i " + self.battery[i]["iperf"]["interval"].value)
             # This shows that I could even have different monitors for different tests
             monitor = self.battery[i]['monitor'].get_tuple()
@@ -151,16 +155,16 @@ class TestBattery(object):
                 logging.error("not able to start the server or monitor, check your configuration")
                 # having an exit here I would not need to put an else
                 sys.exit(BADHOST)
+
+            except KeyboardInterrupt:
+                logging.info("restarting from same test")
+                continue
             
-            srv.run_command(*server)
+            srv.run_server(*server)
             # mon.run_command(*monitor)
             print "running as monitor %s" % mon_cmd
-            subprocess.Popen(mon_cmd, shell=True)
+            subprocess.Popen(mon_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-            if SIMULATE:
-                print "only simulating %s" % str(self.battery[i])
-                i += 1
-                continue
             banner("TEST %s:\n" % self.battery[i].codename, sym="=")
             try:
                 # better handle it here not inside the test itself
@@ -175,13 +179,16 @@ class TestBattery(object):
                 srv.get_output(SERVER_RESULT)
                 # getting the output anyway even if launched outside paramiko
                 mon.get_output(DUMP)
-                self.write_results(self.battery[i])
+                if not SIMULATE:
+                    self.write_results(self.battery[i])
                 logging.info("test %s done" % self.battery[i].codename)
                 i += 1
             finally:
+                srv.run_command("rm %s" % SERVER_RESULT)
+                mon.run_command("rm %s" % DUMP)
                 # always closing the ssh connections (and killing commands also)
                 srv.close(kill=True)
-                mon.close()
+                mon.close(kill=False)
 
     def run_test(self, test):
         """
@@ -196,7 +203,7 @@ class TestBattery(object):
         print "test started, hold on"
         # automatically writes the output to the right place, kind of magic of subprocess
         # time.sleep(2)
-        proc = subprocess.Popen(cmd, shell=True, stdout=open("iperf.tmp",'w'), stderr=subprocess.PIPE)
+        proc = subprocess.Popen(cmd, shell=True, stdout=open(CLIENT_RESULT,'w'), stderr=subprocess.PIPE)
         if re.search("did not receive ack", proc.stderr.read()):
             print "host %s not responding, quitting the test" % self.conf['iperf']['host']
             sys.exit(BADHOST)
@@ -205,9 +212,11 @@ class TestBattery(object):
         """Finally writes the results of the test in the right directories"""
         res_dict = get_res(self.root, test.codename)
         # saving the dump file
-        shutil.copy(DUMP, res_dict["dump"])
-        shutil.copy("iperf.tmp", res_dict["iperf_client"])
-        shutil.copy(SERVER_RESULT, res_dict["iperf_server"])
+        shutil.move(DUMP, res_dict["dump"])
+        shutil.move(CLIENT_RESULT, res_dict["iperf_client"])
+        shutil.move(SERVER_RESULT, res_dict["iperf_server"])
+        print "wrote results on %s, %s, %s"\
+            % (res_dict["dump"], res_dict["iperf_client"], res_dict["iperf_server"])
         self.analyzer.parse_file(open(res_dict["iperf_client"], 'r'))
         self.analyzer_server.parse_file(open(res_dict["iperf_server"], 'r'))
         test.to_ini(open(res_dict["full_conf"], 'w'))
