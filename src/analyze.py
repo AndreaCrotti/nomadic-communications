@@ -17,6 +17,13 @@ from vars import *
 #     print "unable to analyze packets with scapy"
 #     SCAPY = False
 
+GNUPLOT = False
+try:
+    import Gnuplot
+except ImportError:
+    print "unable to plot"
+    GNUPLOT = True
+
 STAT = True
 try:
     from statlib import stats
