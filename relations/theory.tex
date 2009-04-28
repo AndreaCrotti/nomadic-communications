@@ -27,10 +27,10 @@
 		\label{802.11_family_standard}
 	\end{table}
 	
-	As we can see from the table the standard g's typical throughput is just shy of fivefold then b standard typical throughput and the main difference is the modulation method.
+	As we can see from the table the standard 802.11g's typical throughput is just shy of fivefold then 802.11b standard typical throughput and the main difference is the modulation method.
 	With DSSS the available speed are 1 , 2 , 5.5 , 11 Mbit/s with OFDM are 6 , 9 , 12 , 18 , 24 , 36 , 48 , 54 Mbit/s. When a 802.11g device communicate with a 802.11b device it uses, in order to retrocomputability, DSSS  so it go down with DSSS speeds.
-	However the important point is the real throughput in relation to bitrate.
-	In 802.11b we can se a typical throughput of 4,3 Mbit/s over a 11 Mbit/s of channel capacity. This is due to the overhead of the DSSS.
+	However the important point is the real throughput in relation to the nominal bitrate.
+	In 802.11b we can se a typical throughput of 4,3 Mbit/s over a 11 Mbit/s of channel capacity while in 802.11g we have a typical throuughput of 25 Mbit/s over a 54 Mbit/s of channel capacity. This is due to the overhead of the communication.
 	
 	802.11 standard basically defines two layer, a physical layer (PHY) and a media access control layer (MAC) but to understand the reason behind the different throughput we have to analyze the MAC Frame Format (Figure \ref{mac_packet}).
 	
@@ -69,7 +69,7 @@
 				 \hline
 				 & 5.5 Mbit/s & 11 Mbit/s & 6 Mbit/s & 54 Mbit/s \\
 			\hline
-				DIFS & 50 ?s & 50 ?s & 28 ?s & 28 ?s \\
+				DIFS & 50 \nano s & 50 ?s & 28 ?s & 28 ?s \\
 			\hline
 				SIFS & 10 ?s & 10 ?s & 10 ?s & 10 ?s \\
 			\hline
