@@ -16,19 +16,27 @@ These are the pieces of software we used for our project:
 		It only has a command-line interface, with many options to configure its behavior, some of which we changed throughout our tests, while keeping others the same.
 
 		The tool can do UDP and TCP traffic tests.
-		While TCP would measure the throughput which the end-user experiences in most cases, the connectionless UDP option is closer to the low-level details which we were interested in. We chose to only use this feature.
+		While TCP would measure the throughput which the end-user experiences in most cases, the connectionless UDP option is closer to the low-level details which we were interested in. Hence, we chose to only use this feature.
 
-		TODO more detail?
+		% more detail?
 
 	\item[tcpdump]
 		is a packet sniffer which logs packets sent through one interface. Optionally you can specify a filter on the command line to get only packets you are interested in.
-		The output file is a binary format, called {\tt pcap}, which can be read by many other applications like Wireshark.
+		The output file is a binary format, ({\em pcap}), which can be then read by many other applications like Wireshark.
 		
 	\item[Wireshark]
-		Wireshark is a graphical tool which helps you analyze captured traffic by parsing packets and displaying structured information about them.
+		is a graphical tool which helps you analyze captured traffic by parsing packets and displaying structured information about them.
 		We used this tool in the beginning to see where we can refine our work, but in the end the program was not used anymore.
 
 	\item[gnuplot]
-		is an application which can represent data in graphs of many types. It has an interactive text interface, as well as it can be used as a library by a piece of software. We used it with the help of the wrapper library for python ``python-gnuplot''.
+		is an application which can represent data in graphs of many types. It has an interactive text interface, as well as it can be used as a library by a piece of software. We used it with the help of the wrapper library ``python-gnuplot'' for python.
 
 \end{description}
+%
+The python script was mainly written by Andrea Crotti.  Its main goal is to
+automate as many tasks as possible to do our measurement.  The main strength
+of the program is its configurability.  From simple configuration ({\em ini})
+files it reads the required information about the network topology as well as
+the settings to apply when testing the throughput.
+
+A comprehensive description can be found in the file {\tt README.textile}.
