@@ -35,18 +35,19 @@
 	802.11 standard basically defines two layer, a physical layer (PHY) and a media access control layer (MAC) but to understand the reason behind the different throughput we have to analyze the MAC Frame Format (Figure \ref{mac_packet}).
 	
 	\begin{figure}[h!]
-		\includegraphics[angle=0, keepaspectratio=true, width=15cm]{images/mac_header2}
+		\includegraphics[angle=0, keepaspectratio=true, width=15cm]{../images/mac_header2}
 		\caption{MAC Frame Format}
 		\label{mac_packet}
 	\end{figure}
 	
 	The total header cost in terms of bytes is fixed to 32 bytes (octets) over a variable size of the frame body from 0 to 2304 bytes plus any overhead from security encapsulation. The frame body size is determined by the maximum MSDU + ICV + IV , where ICV (Integrity Check Value) and IV (Initialization Vector) need to WEP and MSDU is the Mac Service Data Unit. Therefore the real throughput depends by frame body length.\\
 	
-	\begin{figure}[h!]
-		\includegraphics[angle=0, keepaspectratio=true, width=15cm]{images/ppdu_frame_format}
-		\caption{PPDU Frame Format}
-		\label{ppdu_frame_packet}
-	\end{figure}
+    % TODO inserti missing figure
+    % \begin{figure}[h!]
+    %   \includegraphics[angle=0, keepaspectratio=true, width=15cm]{../images/ppdu_frame_format}
+    %   \caption{PPDU Frame Format}
+    %   \label{ppdu_frame_packet}
+    % \end{figure}
 	
 	To calculate the teorical throughput we have to follow the two formulas written below:
 	
