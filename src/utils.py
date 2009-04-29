@@ -3,11 +3,15 @@ import paramiko
 import logging
 import ConfigParser
 import re
+from string import lower, upper
 
 from vars import *
 from errors import *
 from config import Configuration
 
+# ===================
+# = Latex utilities =
+# ===================
 def latex_table(text, length):
     aligns = "{" + "l || " + "|".join(["c"] * (length -1)) + "}"
     begin = r"\begin{tabular}" + aligns
@@ -18,6 +22,9 @@ def tests_to_latex(tests, pars):
     lines = "\n".join([t.latex_line(pars) for t in tests])
     return latex_table(lines, len(pars))
 
+# ===========================
+# = Test managing utilities =
+# ===========================
 def get_codename(test_file):
     """
     Getting the codename from a whatever, using global variables
@@ -72,12 +79,16 @@ def config_to_dict(conf_file):
 
 class RemoteCommand(object):
     """Incapsulating the need of launching commands and
-    getting the resulting output"""
+    getting the resulting output.
+    It's important that you need to have your host already
+    in ~.ssh/known_hosts, otherwise it will refuse
+    to connect even if user/password are correct
+    """
     def __init__(self, outfile="dump", server=False):
         self.outfile = outfile
         self.ssh = paramiko.SSHClient()
         self.server = server
-        # this should be enough for the server key
+        # loading knows hosts
         self.ssh.load_system_host_keys()
         self.killcmd = None
 
@@ -141,16 +152,6 @@ class RemoteCommand(object):
                     logging.info(o.read())
                 # close and kill the command if still running
         self.ssh.close()
-
-def send_command(host, command):
-    """Sending a command and returning the output"""
-    ssh = paramiko.SSHClient()
-    # this should be always enough, otherwise add it manually
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(host, username="root", password="condor", port=22) #pkey=open("/Users/andrea/.ssh/andrea").read(), 
-    _,o,e = ssh.exec_command(command)
-    ssh.close()
-    return o.read()
     
 def tuple_to_num(tup):
     """Taking float numbers in a list of tuples"""
@@ -163,29 +164,6 @@ def banner(text, sym="*"):
     start = end = sym * 40
     print "\n".join(map(lambda x: x.center(50), [start, text, end]))
 
-# TODO write a better remote host checking
-def to_remote(cmd):
-    print "==>\t" + cmd
-
-def to_local(cmd):
-    print "!!\t" + cmd
-
-    
-# TODO avoid returning booleans, using exception handling!!
-def check_remote(host, user = None, command = ""):
-    """Checking the remote access to a host, optionally
-    with user user (useful to check root access)"""
-    if user:
-        p = subprocess.Popen(remote(host, "id"), stdout = subprocess.PIPE, shell=True)
-        out = p.stdout.read()
-        if user in out:
-            print "yes you are the root"
-            return True
-        else:
-            print "no dude"
-            return False
-    else:
-        return (subprocess.Popen(remote(host, 'ls'), shell=True, stdout = subprocess.PIPE).wait() == 0)
 
 # FIXME wait until the end, spawn the process maybe
 def play(message):
@@ -231,23 +209,71 @@ def menu_set(menu):
                 print "you must give integer input"
                 continue
 
+class Timer(object):
+    def __init__(self, value):
+        self.h = 0
+        self.m, self.sec = divmod(value, 60)
+        if self.m > 0:
+            self.h, self.m = divmod(self.m, 60)
+        
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        s = ""
+        if self.h > 0:
+            s += "%d hour, " % self.h
+        if self.m > 0:
+            s += "%d minute, " % self.m
+        s += "%d second\t" % self.sec
+        return s
+
+def get_speed(speed, unit):
+    """Gets the speed out of a string (1M, 2g for example)
+    converts it into unit if necessary
+    """
+    reg = re.compile(r'([\d.]+)(\w+)')
+    s, u = reg.match(speed).groups()
+    return Size(s, u).translate(unit)
 
 class Size(object):
     """ Converting from one unit misure to the other """
     def __init__(self, value, unit = 'B'):
-        self.value = value
-        self.units = ['B', 'K', 'M', 'G']
-        if unit not in self.units:
-            raise ValueError, "unit must be in " + str(self.units)
+        """Gets a value which represents a float, could
+        be int or even string"""
+        self.value = float(value)
+        self.low = ['b', 'Kb', 'Mb', 'Gb']
+        self.high = [''.join(map(upper, s)) for s in self.low]
+        self.units = dict(zip(self.low, range(0, len(self.low)*10, 10)) +\
+            zip(self.high, range(3, len(self.high)*10, 10)))
+        
+        self._check_unit(unit)
         self.unit = unit
+        
+    def _check_unit(self, unit):
+        """Check if correct unit, raises ValueError
+        exception"""
+        if unit not in self.units.keys():
+            raise ValueError, "can only choose " + str(self.units.keys())
 
     def translate(self, unit):
-        """Returns the rounded translation in a different unit measure"""
-        if unit not in self.units:
-            raise ValueError, "can only choose " + self.units
-        else:
-            offset = self.units.index(self.unit) - self.units.index(unit)
-            return round(self.value * (pow(1024, offset)), 2)
+        """Returns the rounded translation in a different unit measure
+        It DOESN'T return a new Size object but the just the value
+        """
+        self._check_unit(unit)
+        # FIXME attention to equal named variables
+        offset = self.units[self.unit] - self.units[unit]
+        return round(self.value * (pow(2, offset)))
         
     def __str__(self):
         return " ".join([str(self.value), self.unit])
+    
+    def __repr__(self):
+        return str(self)
+        
+class Speed(Size):
+    def __init__(self, value, unit):
+        Size.__init__(self, value, unit)
+    
+    def __str__(self):
+        return Size.__str__(self) + "/s"
