@@ -31,6 +31,10 @@ These are the pieces of software we used for our project:
 	\item[gnuplot]
 		is an application which can represent data in graphs of many types. It has an interactive text interface, as well as it can be used as a library by a piece of software. We used it with the help of the wrapper library ``python-gnuplot'' for python.
 
+	\item[paramiko]
+		is a library for python to establish SSH connections.
+		This is used for remote controlling the hosts on which the iperf server or client is running.
+
 \end{description}
 %
 The python script was mainly written by Andrea Crotti.  Its main goal is to
@@ -40,3 +44,9 @@ files it reads the required information about the network topology as well as
 the settings to apply when testing the throughput.
 
 A comprehensive description can be found in the file {\tt README.textile}.
+
+
+\subsubsection{The script}
+
+The script \verb|tester.py| is the entry point for the program.
+To invoke a test, the program is launched as {\tt ./tester.py \it name}, after placing a configuration file at the location {\tt userconfs/{\it name}.ini}.
