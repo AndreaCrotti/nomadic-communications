@@ -24,6 +24,7 @@ from src.errors import *
 # global flags
 SIMULATE = False
 VERBOSE = False
+LIST = False
 
 # exit codes FIXME, avoid it use exceptions
 BADHOST = 1
@@ -117,6 +118,14 @@ class TestBattery(object):
             open(os.path.join(root, COMPLETED), 'w')
 
     def pre_run(self):
+        if LIST:
+            # FIXME not printing when not batch mode
+            for num, conf in enumerate(self.test_configs):
+                print "%d) CONFIGURATION %s\n%s" % (num, conf, open(conf).read())
+                print "\n"
+            return
+        
+        i = 0
         self.make_subtree(self.root, RESULTS.iterkeys())
         compl_file = os.path.join(self.root, COMPLETED)
         try:
@@ -133,8 +142,9 @@ class TestBattery(object):
             self.summary()
 
     def run(self):
-        # TODO battery and _group_auto can be maybe reimplemented using itertools.groupby
+        print "This test battery will run in %s" % self.tot_time()
         i = 0
+        # Refactor run() code
         while i < len(self.battery):
             if SIMULATE:
                 print "setting minimal timings"
@@ -196,13 +206,11 @@ class TestBattery(object):
         and saving the results in a directory structure
         """
         monitor = test.conf['monitor']
-        # FIXME brrr how bad
         print test
         cmd = str(test['iperf'])
         raw_input("Press any key when ready:\n")
-        print "test started, hold on"
+        print "test started, hold on for %s" % Timer(test['iperf']['time'].value)
         # automatically writes the output to the right place, kind of magic of subprocess
-        # time.sleep(2)
         proc = subprocess.Popen(cmd, shell=True, stdout=open(CLIENT_RESULT,'w'), stderr=subprocess.PIPE)
         if re.search("did not receive ack", proc.stderr.read()):
             print "host %s not responding, quitting the test" % self.conf['iperf']['host']
@@ -211,7 +219,7 @@ class TestBattery(object):
     def write_results(self, test):
         """Finally writes the results of the test in the right directories"""
         res_dict = get_res(self.root, test.codename)
-        # saving the dump file
+        # TODO check that they are already there
         shutil.move(DUMP, res_dict["dump"])
         shutil.move(CLIENT_RESULT, res_dict["iperf_client"])
         shutil.move(SERVER_RESULT, res_dict["iperf_server"])
@@ -232,6 +240,10 @@ class TestBattery(object):
         plotter.plot()
         plotter.save(filename)
 
+    def tot_time(self):
+        tot = sum([i.get_time() for i in self.battery])
+        return Timer(tot)
+
     def batch(self):
         """Automatic run of the tests"""
         self.pre_run()
@@ -248,12 +260,13 @@ def usage():
 if __name__ == '__main__':
     # TODO implementing a test cleaner
     opts, args = getopt.getopt(sys.argv[1:], 
-        'cvshd', ['verbose', 'simulate', 'help', 'clean', 'debug'])
+        'cvshdl', ['verbose', 'simulate', 'help', 'clean', 'debug', 'list'])
     for o, a in opts:
         if o in ('-h', '--help'):
             usage()
 
         if o in ('-d', '--debug'):
+            # Not functional programming
             logging.getLogger().setLevel(logging.DEBUG)
 
         if o in ('-v', '--verbose'):
@@ -261,6 +274,9 @@ if __name__ == '__main__':
 
         if o in ('-s', '--simulate'):
             SIMULATE = True
+        
+        if o in ('-l', '--list'):
+            LIST = True
 
     # we can pass as many configs files as you want or just let
     # the program look for them automatically
