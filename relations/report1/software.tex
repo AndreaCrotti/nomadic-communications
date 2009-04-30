@@ -8,21 +8,26 @@
 For measuring the traffic we wrote a python script which makes use of other software.
 
 Python is a simple, interpreted, object oriented scripting language with a large set of libraries.
-These are the pieces of software we used for our project:
+These are the softwares we used for our project:
 
 \begin{description}
 	\item[iperf]
 		measures throughput of traffic between two hosts, not limited to wireless setups.
-		It only has a command-line interface, with many options to configure its behavior, some of which we changed throughout our tests, while keeping others the same.
+It has a long list of possible options that can be used to test the network with many different low level settings.
 
-		The tool can do UDP and TCP traffic tests.
-		While TCP would measure the throughput which the end-user experiences in most cases, the connectionless UDP option is closer to the low-level details which we were interested in. Hence, we chose to only use this feature.
+The tool can do UDP and TCP traffic tests.\newline
+While TCP would measure the throughput which the end-user experiences in most cases, the connectionless UDP option is closer to the low-level details which we were interested in.
+To test the network with iperf we need to launch a daemon one host and connect to it.\newline
+If we set the interval flag on both the server and the client we get the resulting bandwidht from both, but as we'll see later they could differ.\newline
+In fact using the udp mode the client doesn't actually know anything of what is the server actually receiving.
+That's why we decided to collect both outputs for every test done.
 
+The only way to understand that the client's results are not precise is to look at the miss rate.
 		% more detail?
 
 	\item[tcpdump]
 		is a packet sniffer which logs packets sent through one interface. Optionally you can specify a filter on the command line to get only packets you are interested in.
-		The output file is a binary format, ({\em pcap}), which can be then read by many other applications like Wireshark.
+The output file is a binary format, ({\em pcap}), which can be then read by many other applications like Wireshark.
 		
 	\item[Wireshark]
 		is a graphical tool which helps you analyze captured traffic by parsing packets and displaying structured information about them.
@@ -32,8 +37,8 @@ These are the pieces of software we used for our project:
 		is an application which can represent data in graphs of many types. It has an interactive text interface, as well as it can be used as a library by a piece of software. We used it with the help of the wrapper library ``python-gnuplot'' for python.
 
 	\item[paramiko]
-		is a library for python to establish SSH connections.
-		This is used for remote controlling the hosts on which the iperf server or client is running.
+		is a python library implementing the SSH2 protocol.	
+	This is used to enable the python script which automates the tests to launch automatically the iperf server and the tcpdump monitor.
 
 \end{description}
 %
@@ -46,19 +51,23 @@ the settings to apply when testing the throughput.
 A comprehensive description can be found in the file {\tt README.textile}.
 
 
-\subsubsection{The Script}
+\subsubsection{Test automator script}
 
 \noindent
 The script \verb|tester.py| is the entry point for the program, and it has support for per-user configuration:
 To invoke a test, the program is launched as {\tt ./tester.py \textit{name}},
-after placing a configuration file at the location {\tt userconfs/\textit{name}.ini}.
+after placing a configuration file at the location {\tt userconfs/\textit{name}.ini}.\newline
+
 There is also a global configuration file, {\tt default.ini}, which is read at first.
 Its values have a lower precedence, thus they are overridden by the per-user configuration file.
 
-For different tests, there are again configuration files inside the {\tt configs} folder,
-which in turn override some of the configuration before doing the actual experiment.
+For different tests, there are again configuration files inside the {\tt configs} directory, which in turn override some of the configuration before doing the actual experiment.
+
+By default all the configurations get loaded, so every test is a three-merge of default + user_defined + test_defined.\newline
+This makes a lot easier to define new test sets or test same parameters on different networks.
 
 The contents of these files are described in the next section.
+
 
 %For the options we considered, see Section \ref{sec:parameters}.
 

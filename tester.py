@@ -4,9 +4,6 @@
 import os
 import re
 import sys
-import shelve
-import time
-import ConfigParser
 import subprocess
 import shutil
 import logging
