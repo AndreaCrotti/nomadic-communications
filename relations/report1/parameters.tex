@@ -1,2 +1,122 @@
 % Parameters of the tests. Everything that influences the tests and the results we are trying to look at. This includes both static and variables things.
 % Wifi channel speed used, fragmentation threshold, rst threshold and similars
+\label{sec:parameters}
+
+\noindent
+The files are in the INI format, which means they contain simple {\tt\textit{key} = \textit{value}} pairs,
+structured into sections by lines with a square-bracketed {\tt[\textit{section-title}]}.
+
+%The script accepts parameters in three different formats:
+%\begin{enumerate}
+%	\item
+%		One literal value, e.\,g.~{\tt speed = 1M},
+%
+%	\item
+%		A {\em list} which will be translated to a list in python,
+%		e.\,g.~{\tt speed = 1M, 2M, 5.5M},
+%
+%	\item
+%		A {\em range}, as used in python, like
+%		{\tt time = 1..4}, which produces [1, 2, 3, 4].
+%\end{enumerate}
+%
+There are three sections inside the configuration files:
+
+\subsubsection{iperf}
+
+\noindent
+This section declares the options passed to the \verb|iperf| tool.
+These are the available settings in the section:
+% along with the default values we gave them.
+% along with the possible options:
+
+\begin{description}
+	\item[speed] (iperf argument \verb|-b|, Options: {\tt 1M, 2M, 5.5M, 11M, 36M, 48M, 54M})
+
+		A list of speeds at which the data traffic should be sent over the network.	
+
+		For the test configurations we used only one value each.
+
+	\item[time] (\verb|-t|)
+
+		The time for which the traffic is produced, in seconds.
+
+	\item[interval] (\verb|-i|)
+
+		Sets the time to wait between repeated tests, in seconds.
+
+	\item[format] (\verb|-f|, Default: \verb|K|)
+
+		Tells iperf how it should print data sizes in the result, we only used {\tt K}, which stands for Kilobytes.
+
+	\item[host] (\verb|-c|)
+
+		Defines the server on wich the iperf server will be executed and to which the client will connect.
+
+	\item[udp] (\verb|-u|, Default: True)
+
+		When true, use UDP for measurement, TCP otherwise.
+		As mentioned above in \ref{setup:software}, we only use UDP.
+\end{description}
+%
+
+\subsubsection{ap (Access Point Settings)}
+
+\noindent
+The Access Point's settings can not be set automatically, so the script uses this information only for treating the resulting data correctly. Before tests are done, the configuration is printed and the program waits for the user to set everything appropriately and to confirm.
+
+Only the first three of them specify the Access Point's configuration.
+All the other options are only stored in the result.
+\begin{description}
+	\item[mode] (Options: B, G)
+	\item[speed] (Options: 1M, 2M, 5.5M, 11M, 36M, 48M, 54M)
+
+		The speed at which the Access Point operates.
+
+	\item[channel] (Options: An integer, usually $[1,13]$)
+
+		The channel used for the network (implies the frequency used).
+
+	\item[ip]	The AP's IP address.  Not used.
+	\item[ssid]	The Network's SSID.  Not used.
+	\item[firmware]	Information about the driver's firmware.  Not used.
+	\item[model]	The Model of the device.  Not used.
+	\item[comment]	A specific comment for the user or test.  Not used.
+\end{description}
+%
+
+\subsubsection{client}
+
+\noindent
+Also this section contains mainly informational settings.
+
+\begin{description}
+	\item[rts\_threshold] (Threshold for Request-To-Send) %= 256..2437
+
+		Only when the size of a packet is larger than this (in bytes), an RTS will be requested before sending it.
+		Otherwise, it will be sent right away.
+		This is because for small packet, the RTS becomes a big overhead.
+
+	\item[frag\_threshold] (Fragmentation Threshold) %= 256..1500
+		
+		Packets will be fragmented and sent piecewise, if their size is bigger than this value.
+
+	\item[brand]	Brand of the network card,
+	\item[model]	Model of the network card,
+	\item[driver]	Driver of the network card.
+\end{description}
+%
+
+\subsubsection{monitor}
+
+\noindent
+This section defines where and how \verb|tcpdump| will be executed.
+\begin{description}
+	\item[interface]
+		Determines on which network interface \verb|tcpdump| will listen.
+
+	\item[host]
+		Specifies the monitor's IP or DNS address.
+		On this host, an SSH server must be running, and root's public key must be authorized on the local machine.
+\end{description}
+

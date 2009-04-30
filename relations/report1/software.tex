@@ -46,7 +46,19 @@ the settings to apply when testing the throughput.
 A comprehensive description can be found in the file {\tt README.textile}.
 
 
-\subsubsection{The script}
+\subsubsection{The Script}
 
-The script \verb|tester.py| is the entry point for the program.
-To invoke a test, the program is launched as {\tt ./tester.py \it name}, after placing a configuration file at the location {\tt userconfs/{\it name}.ini}.
+\noindent
+The script \verb|tester.py| is the entry point for the program, and it has support for per-user configuration:
+To invoke a test, the program is launched as {\tt ./tester.py \textit{name}},
+after placing a configuration file at the location {\tt userconfs/\textit{name}.ini}.
+There is also a global configuration file, {\tt default.ini}, which is read at first.
+Its values have a lower precedence, thus they are overridden by the per-user configuration file.
+
+For different tests, there are again configuration files inside the {\tt configs} folder,
+which in turn override some of the configuration before doing the actual experiment.
+
+The contents of these files are described in the next section.
+
+%For the options we considered, see Section \ref{sec:parameters}.
+
