@@ -59,7 +59,7 @@ class TestBattery(object):
         self.test_configs = glob(CONFIGS % "*")
         self.battery = []
         # dictionary containing absolute paths for the results
-        self.analyzer = IperfClientPlain()
+        self.analyzer_client = IperfClientPlain()
         self.analyzer_server = IperfServer()
         self.root = ROOT % username
         self.remotes = config_to_dict(REMOTES)
@@ -191,6 +191,8 @@ class TestBattery(object):
                 mon.get_output(DUMP)
                 if not SIMULATE:
                     self.write_results(self.battery[i])
+                    self.analyze(self.battery[i])
+                    open(os.path.join(self.root, COMPLETED), 'a').write(self.battery[i].codename + "\n")
                 logging.info("test %s done" % self.battery[i].codename)
                 i += 1
             finally:
@@ -209,7 +211,7 @@ class TestBattery(object):
         print test
         cmd = str(test['iperf'])
         raw_input("Press any key when ready:\n")
-        print "test started, hold on for %s" % Timer(test['iperf']['time'].value)
+        print "test started, hold on for %s" % str(Timer(int(test['iperf']['time'].value)))
         # automatically writes the output to the right place, kind of magic of subprocess
         proc = subprocess.Popen(cmd, shell=True, stdout=open(CLIENT_RESULT,'w'), stderr=subprocess.PIPE)
         if re.search("did not receive ack", proc.stderr.read()):
@@ -225,18 +227,32 @@ class TestBattery(object):
         shutil.move(SERVER_RESULT, res_dict["iperf_server"])
         print "wrote results on %s, %s, %s"\
             % (res_dict["dump"], res_dict["iperf_client"], res_dict["iperf_server"])
-        self.analyzer.parse_file(open(res_dict["iperf_client"], 'r'))
-        self.analyzer_server.parse_file(open(res_dict["iperf_server"], 'r'))
         test.to_ini(open(res_dict["full_conf"], 'w'))
-        # FIXME ugly argument passing
-        self.plot({"client" : self.analyzer.get_values(), "server" : self.analyzer_server.get_values()}, test.codename, res_dict["graphs"])
-        open(os.path.join(self.root, COMPLETED), 'a').write(test.codename + "\n")
+        
+    def analyze(self, test):
+        """Analyze the results plotting"""
+        # Adding safety checks
+        plot_conf = config_to_dict(GNUPLOT_CONF)['plot']
+        res_dict = get_res(self.root, test.codename)
+        self.analyzer_client.parse_file(open(res_dict["iperf_client"], 'r'))
+        self.analyzer_server.parse_file(open(res_dict["iperf_server"], 'r'))
+        results = {
+            "client" : self.analyzer_client.get_values(),
+            "server" : self.analyzer_server.get_values(),
+            # "jitter" : self.analyzer_server.get_values(field = 'jitter')
+        }
+        # FIXME not working anymore
+        for k in results.keys():
+            if plot_conf.has_key(k):
+                print "plotting %s" % str(plot_conf[k])
+        # self.plot({"client" : self.analyzer.get_values(), "server" : self.analyzer_server.get_values()}, test.codename, res_dict["graphs"])
+        
 
     def plot(self, results, codename, filename):
         """Plots and writes the graph generated to filename"""
         plotter = Plotter("testing", "kbs")
         for key, val in results.iteritems():
-            plotter.add_data(val, codename + " " + key)
+            plotter.add_data(val)
         plotter.plot()
         plotter.save(filename)
 
