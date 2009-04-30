@@ -37,8 +37,31 @@ except ImportError, i:
 # Arrival time
 # Payload
 
-def gnuplot_conf():
-    return config_to_dict(GNUPLOT_CONF)
+
+def get_max_speed(mode, speed):
+    """Getting the theoretical max speed achievable"""
+    return Speed(speed, 'Mb').translate('KB')
+
+class DataSet(object):
+    """General class for handling sets of data"""
+    def __init__(self, data, title, xaxis, yaxis, gnuplot_conf, format="default"):
+        """The other possible formats are defined in gnuplot configuration file.
+        The yaxis must be passed also
+        """
+        self.data = data
+        self.title = title
+        self.format = format
+        self.xaxis = xaxis
+        self.yaxis = yaxis
+        self.gnuplot_conf = gnuplot_conf
+    
+    def to_gnuplot(self):
+        """Creates a GnuplotData object
+        setting the style accordingly with che configuratin"""
+        gp = Gnuplot.Data(self.data)
+        if self.gnuplot_conf.has_key(self.format):
+            gp.set_style(style)
+        return gp
 
 class Plotter(object):
     """Class for plotting during testing"""
@@ -48,23 +71,30 @@ class Plotter(object):
         self.title = title
         self.value = value
         self.items = []
-        self.last = []
         self.plotter = Gnuplot.Gnuplot(persist = 1)
-        self.plotter.set_string("title", title)
+        self.set_defaults()
+    
+    def set_defaults(self):
+        """Setting some defaults confs"""
+        self.plotter.set_string("title", self.title)
         self.plotter.set_range('yrange', (0,"*"))
         self.plotter.set_label('xlabel', "step")
         self.plotter.set_label('ylabel', self.value)
+    
+    def set_style(self, style):
+        # TODO set correct options
+        pass
+        # self.plotter.
 
     def load_conf(self, conf_file):
         """Loading a gnuplot configuration file"""
         self.plotter.load(conf_file)
 
-    def add_data(self, data, name):
-        """Add another data set"""
-        # always keeping last maxGraphs elements in the item list and redraw them
-        self.last = data
-        new = Gnuplot.Data(data, title = name)
-        self.items.append(new)
+    def add_data(self, data):
+        """Add another dataset, which must be 
+        GnuplotData instance with all the parameters
+        already set"""
+        self.items.append(data)
 
     def plot(self):
         """docstring for plot"""
@@ -73,12 +103,6 @@ class Plotter(object):
     def save(self, filename):
         print "saving graph to %s" % filename
         self.plotter.hardcopy(filename=filename, eps=True, color=True)
-
-def mean(data):
-    return stats.mean(data)
-
-def stdev(data):
-    return stats.stdev(data)
 
 
 class StatData(object):

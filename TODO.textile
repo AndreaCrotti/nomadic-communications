@@ -3,6 +3,7 @@ h1. PROGRAM
 * Check robustness of paramiko remote commands
 * Write an interactive script (Cmd?) to nicely compose tests
 * Using mako to create the latex templates
+* Check how to use SCAPY without root acces to analyze the packets
 * Write a latex report generator for "default" tests
 * Use sqlite for managing data
 * Use yaml for the configuration

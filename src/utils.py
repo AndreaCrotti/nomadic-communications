@@ -212,7 +212,7 @@ def menu_set(menu):
 class Timer(object):
     def __init__(self, value):
         self.h = 0
-        self.m, self.sec = divmod(value, 60)
+        self.m, self.s = divmod(value, 60)
         if self.m > 0:
             self.h, self.m = divmod(self.m, 60)
         
@@ -225,7 +225,7 @@ class Timer(object):
             s += "%d hour, " % self.h
         if self.m > 0:
             s += "%d minute, " % self.m
-        s += "%d second\t" % self.sec
+        s += "%d second\t" % self.s
         return s
 
 def get_speed(speed, unit):

@@ -142,8 +142,7 @@ class MonitorConf(Cnf):
     def get_tuple(self):
         return (self.cmd, self.opts)
 
-
-# CHANGED I had to pull opt_conf outside to let shelve pickle work
+# FIXME not a good idea
 opt_conf = {
     "iperf" : lambda x: IperfConf(x),
     "ap"    : lambda x: ApConf(x),
@@ -159,11 +158,12 @@ class Configuration(object):
     all the possible alternatives, to_min will output a minimal dictionary representing
     the default values"""
 
-    def __init__(self, conf_file, codename = ""): #CHANGED codename only given by ini_file
+    def __init__(self, conf_file, codename = ""):
         self.conf = {}
         # TODO use the default method passing when creating the dict
         self.reader = ConfigParser.ConfigParser()
-        self.from_ini(open(conf_file))      # directly creating from __init__
+        # TODO maybe we should delay the file parsing
+        self.from_ini(open(conf_file))
         self.codename = codename
         
     def __str__(self):
@@ -247,6 +247,10 @@ class Configuration(object):
             for key, val in opt.items():
                 writer.set(sec, key, val.value)
         writer.write(conf_file)
+    
+    def get_time(self):
+        """Getting the time to execute this test"""
+        return int(self.conf['iperf']['time'].value)
                     
     def from_ini(self, conf_file):
         """Creates a configuration reading the ini file passed"""

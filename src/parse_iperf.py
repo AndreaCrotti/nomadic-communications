@@ -75,7 +75,7 @@ class IperfClientPlain(IperfClient):
 class IperfServer(object):
     def __init__(self):
         self.positions = {
-            "value" : 4, "jitter" : 5, "missed" : 6, "total" : 7
+            "speed" : 4, "jitter" : 5, "missed" : 6, "total" : 7
         }
         self.num = re.compile(r"(\d+)(?:\.(\d+))?")
         self.results = {}
@@ -97,6 +97,6 @@ class IperfServer(object):
                 else:
                     self.results[s] = [val]
 
-    def get_values(self, field = 'value'):
+    def get_values(self, field = 'speed'):
         # leaving exception handling outside
         return self.results[field]

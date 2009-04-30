@@ -90,13 +90,6 @@ UDP buffer size: 9.00 KByte (default)
         i2.parse_file(f)
         self.assertEqual(i2.result, self.plain_res)
         
-    
-class TestSize(unittest.TestCase):
-    def setUp(self):
-        self.small = (Size(102301, 'B'), 99.90)
-        
-    def testTranslate(self):
-        self.assertEqual(self.small[0].translate('K'), self.small[1])
         
 class TestConstOpt(unittest.TestCase):
     def setUp(self):
