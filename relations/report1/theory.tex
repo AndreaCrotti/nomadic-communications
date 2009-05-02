@@ -1,6 +1,9 @@
 % Everything that comes from theory and that is needed to understand and describe our work.
 	\subsection{802.11} \label{theory:prot_specs}
-	802.11 is the standard family of protocols for wireless networks. It is also named Wi-Fi. 802.11 protocols family describe how various wireless devices must interact. Nowadays the most popular 802.11 implementation are 802.11b and 802.11g.
+	802.11 is the standard family of protocols for wireless networks. It is also named Wi-Fi. 802.11 protocols family describe how various wireless devices must interact. There are two kind of wireless network: BSS and IBSS.\\
+	BSS (infrastructure) is a centralized network, in this case we have one or more AP (ACCESS POINT) and varios clients (STAs) can access to the network throw it.\\
+	IBSS (ad-hoc) is a sample client to client (STA to STA) network.\\
+	Nowadays the most popular (and commercial) 802.11 implementations are 802.11b and 802.11g.
 	
 % A simple description of how an IEEE 802.11 protocol works to introduce the fact that there is some overhead added by the protocol.
 % Yes, I know it's unbelivable but there are some differences, for real! :)
@@ -9,7 +12,8 @@
 	802.11b protocol was born in October 1999 and since this date it has a discrete success but with the advent of some other wireless device such as cordless telephones it suffer interfernce that causes slower performance. 802.11b extends the basic net bit rate of the standard 802.11 up to 11 Mbit/s.\\
 	
 	In June 2003 arrives 802.11g that is fully backwards compatible with 802.11b but has best bit rates and throughput\\
-	Both protocols use the same frequency band (2.4 GHz) but use different frequency spreads. While 802.11b use direct sequence spread spectrum signaling (DSSS), 802.11g use orthogonal frequency division multiplexing (OFDM) methods. Because of OFDM 802.11g increase the net bit rate up tu 54 Mbit/s.
+	
+	Both protocols use the same frequency band (2.4 GHz) but use different frequency spreads.
 	
 	\begin{table}[h]
 		
@@ -27,10 +31,23 @@
 		\label{802.11_family_standard}
 	\end{table}
 	
-	As we can see from the table the standard 802.11g's typical throughput is just shy of fivefold then 802.11b standard typical throughput and the main difference is the modulation method.
-	With DSSS the available speed are 1 , 2 , 5.5 , 11 Mbit/s with OFDM are 6 , 9 , 12 , 18 , 24 , 36 , 48 , 54 Mbit/s. When a 802.11g device communicate with a 802.11b device it uses, in order to retrocomputability, DSSS  so it go down with DSSS speeds.
+	As we can see from the table the standard 802.11g's typical throughput is just shy of fivefold then 802.11b standard typical throughput and the main difference is the modulation method. While 802.11b use direct sequence spread spectrum signaling (DSSS), 802.11g use orthogonal frequency division multiplexing (OFDM) methods. Because of OFDM 802.11g increase the net bit rate up tu 54 Mbit/s.
+	
+	\begin{itemize}
+		\item 802.11b (DSSS)
+			\begin{description}
+				\item[Modulation DBPSK, DQPSK] 1 and 2 Mbit/s
+				\item[Modulation CCK] 5.5 , 11 Mbit/s
+			\end{description}
+		\item 802.11g (OFDM)
+			\begin{description}
+				\item[Modulation BPSK, QPSK, 16QAM, 64QAM] 6 , 9 , 12 , 18 , 24 , 36 , 48 , 54 Mbit/s
+			\end{description}
+	\end{itemize}
+
+	When a 802.11g device communicate with a 802.11b device it uses, in order to retrocomputability, DSSS  so it go down with DSSS speeds.
 	However the important point is the real throughput in relation to the nominal bitrate.
-	In 802.11b we can se a typical throughput of 4,3 Mbit/s over a 11 Mbit/s of channel capacity while in 802.11g we have a typical throuughput of 25 Mbit/s over a 54 Mbit/s of channel capacity. This is due to the overhead of the communication.
+	In 802.11b we can have a typical throughput of 4,3 Mbit/s over a 11 Mbit/s of channel capacity while in 802.11g we have a typical throuughput of 25 Mbit/s over a 54 Mbit/s of channel capacity. This is due to the overhead of the communication.
 	
 	802.11 standard basically defines two layer, a physical layer (PHY) and a media access control layer (MAC) but to understand the reason behind the different throughput we have to analyze the MAC Frame Format (Figure \ref{mac_packet}).
 	
@@ -49,7 +66,7 @@
     %   \label{ppdu_frame_packet}
     % \end{figure}
 	
-	To calculate the teorical throughput we have to follow the two formulas written below:
+	To calculate the teorical throughput with a DATA size of 1470 bit we have to follow the two formulas written below:
 	
 	\begin{gather*}
 		Throughput_{FIS} = \\\\
