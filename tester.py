@@ -10,6 +10,7 @@ import logging
 
 from glob import glob
 from getopt import getopt
+# FIXME better way to handle package import?
 from src.parse_iperf import *
 from src.config import *
 from src.utils import *
@@ -27,10 +28,8 @@ LIST = False
 BADHOST = 1
 BADCONF = 2
 
-# CHANGE here the level of verbosity
 logging.basicConfig(stream=sys.stdout)
-# to avoid extra modules logging
-logging.getLogger().addFilter(logging.Filter("root"))
+# TODO filter external stuff
 
 def get_res(root, code):
     """Returns the dictionary of results paths"""

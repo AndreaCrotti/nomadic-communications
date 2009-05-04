@@ -5,7 +5,9 @@
 import sys
 import inspect
 import logging
+from mako.template import Template
 
+# FIXME find a better way to handle source
 sys.path.append('../src')
 
 def get_code(objcode):
