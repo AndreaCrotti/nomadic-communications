@@ -123,6 +123,16 @@
 	\end{table}
 	
 	
+	\subsection{Fragmentation Threshold and RTS Threshold} \label{theory:frag_rts}
+	
+	802.11, in order to improve the performance, allow to adjust some parameter like Frag (Fragmentation Threshold) and RTS/CTS (Request To Sens / Clear To Send).\\
+	
+	\textbf{Fragmentation Threshold} is a technique witch divide a big packet into many small packets. These small packets can be transmitted more quickly into the medium (the air). On the one hand this technique works great avoid the collision but on the other hand it increase the overhead because of the packets header. The possible values range is from 256 to 2346.\\
+	
+	\textbf{RTS Threshold} is the frame size above which an RTS/CTS handshake will be performed before attempting to transmit. The possible values range is from 256 to 2346.\\
+	
+	\textbf{RTS/CTS} is a control signal witch try to synchronize the communication. When a device send an RTS (Request To Send) signal this mean that it is ready to send data, in particular RTS/CTS asks for permission to transmit to reduce collisions, but adds considerable overhead. Disabling RTS/CTS can reduce overhead and latency in WLANs where all stations are close together, but can increase collisions and degrade performance in WLANs where stations are far apart and unable to sense each other to avoid collisions (aka Hidden Nodes).
+
 % Calculate protocols upperbound limitations and similar things (report the formulas!).
 % DO NOT USE PROFESSOR SLIDES AS SOURCE OF INFORMATIONS SINCE MOST OF VALUES ARE COMPLETELY WRONG!!!!!!!!!
 % Download the IEEE standard from here: http://disi.unitn.it/locigno/didattica/NC/802.11-2007.pdf and make a large use of ^F.
