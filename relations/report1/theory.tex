@@ -11,13 +11,13 @@
 % Yes, I know it's unbelivable but there are some differences, for real! :)
 	\subsection{Differences between 802.11b and 802.11g} \label{theory:prot_differences}
 	
-	802.11b protocol was born in October 1999, and since this date it has a discrete success. However, later on some other wireless devices, such as cordless telephones, use the same frequencies and therefore produce interferences with 802.11b-conforming devices and cause slower performance of these.
+	The 802.11b protocol was born in October 1999, and since then it has a discrete success.  However, later on some other wireless devices, such as cordless telephones, use the same frequencies and therefore produce interferences with 802.11b-conforming devices and cause slower performance of these.
 	% As a consequence,
 	802.11b extends the basic net bit rate of the standard 802.11 up to 11 Mbit/s.\\
 	
-	In June 2003 arrives 802.11g that is fully backwards compatible with 802.11b but has best bit rates and throughput\\
+	In June 2003 arrives 802.11g, which is fully backwards compatible with 802.11b, but brings better bit rates and throughput\\
 	
-	Both protocols use the same frequency band (2.4 GHz) but use different frequency spreads.
+	Both protocols use the same frequency band (2.4 GHz), but different frequency spreads.
 	
 	\begin{table}[h]
 		
@@ -36,7 +36,9 @@
 	\end{table}
 	
 	% TODO: ``shy of fivefold then'' ???????
-	As we can see from the table the standard 802.11g's typical throughput is just shy of fivefold then 802.11b standard typical throughput and the main difference is the modulation method. While 802.11b use direct sequence spread spectrum signaling (DSSS), 802.11g use orthogonal frequency division multiplexing (OFDM) methods. Because of OFDM, 802.11g increases the net bit rate up tu 54 Mbit/s.
+	%As we can see from the table the standard 802.11g's typical throughput is just shy of fivefold then 802.11b standard typical throughput and the main difference is the modulation method. While 802.11b use direct sequence spread spectrum signaling (DSSS), 802.11g use orthogonal frequency division multiplexing (OFDM) methods. Because of OFDM, 802.11g increases the net bit rate up tu 54 Mbit/s.
+	%rewrite:
+	As we can see from the table, the 802.11g standard's typical throughput is five times that of 802.11b's typical throughput.  The main difference is the modulation method.  While 802.11b uses direct sequence spread spectrum signalling (DSSS), 802.11g uses orthogonal frequency division multiplexing (OFDM) instead.  Because of OFDM, 802.11g increases the net bit rate to up to 54 Mbit/s.
 	
 	\begin{itemize}
 		\item 802.11b (DSSS)
@@ -95,33 +97,33 @@
 				 \hline
 				 & 5.5 Mbit/s & 11 Mbit/s & 6 Mbit/s & 54 Mbit/s \\
 			\hline
-				DIFS & 50 $\nu$ s & 50 ?s & 28 ?s & 28 ?s \\
+				DIFS & 50 $\mu$ s & 50 ?s & 28 ?s & 28 ?s \\
 			\hline
-				SIFS & 10 $\nu$s & 10 $\nu$s & 10 $\nu$s & 10 $\nu$s \\
+				SIFS & 10 $\mu$s & 10 $\mu$s & 10 $\mu$s & 10 $\mu$s \\
 			\hline
-				CW & 310 $\nu$s & 310 $\nu$s & 139.5 $\nu$s & 139.5 $\nu$s \\
+				CW & 310 $\mu$s & 310 $\mu$s & 139.5 $\mu$s & 139.5 $\mu$s \\
 			\hline
-				PLPC Preamble + PLPC Header & 96 $\nu$s & 96 $\nu$s & 26 $\nu$s & 26 $\nu$s \\
+				PLPC Preamble + PLPC Header & 96 $\mu$s & 96 $\mu$s & 26 $\mu$s & 26 $\mu$s \\
 			\hline
-				MAC Header + LLC & 52.36 $\nu$s & 26.18 $\nu$s & 48 $\nu$s & 5.33 $\nu$s \\
+				MAC Header + LLC & 52.36 $\mu$s & 26.18 $\mu$s & 48 $\mu$s & 5.33 $\mu$s \\
 			\hline
-				IP + UDP Headers & 40.73 $\nu$s & 20.36 $\nu$s & 37.33 $\nu$s & 4.15 $\nu$s \\
+				IP + UDP Headers & 40.73 $\mu$s & 20.36 $\mu$s & 37.33 $\mu$s & 4.15 $\mu$s \\
 			\hline
-				Data (1470 byte)& 2138.18 $\nu$s & 1069.09 $\nu$s & 1960 $\nu$s & 217.78 \\
+				Data (1470 byte)& 2138.18 $\mu$s & 1069.09 $\mu$s & 1960 $\mu$s & 217.78 \\
 			\hline
-				TAIL DATA & -- & -- & 1 $\nu$s & 0.11 $\nu$s \\
+				TAIL DATA & -- & -- & 1 $\mu$s & 0.11 $\mu$s \\
 			\hline
-				ACK PLPC Preamble + Header & 96 $\nu$s & 96 $\nu$s & 26 $\nu$s & 26 $\nu$s \\
+				ACK PLPC Preamble + Header & 96 $\mu$s & 96 $\mu$s & 26 $\mu$s & 26 $\mu$s \\
 			\hline
-				ACK & 20.36 $\nu$s & 10.18 $\nu$s & 18.67 $\nu$s & 2.07 $\nu$s \\
+				ACK & 20.36 $\mu$s & 10.18 $\mu$s & 18.67 $\mu$s & 2.07 $\mu$s \\
 			\hline
-				TAIL ACK & -- & -- & 1 $\nu$s & 0.25 $\nu$s \\
-			\hline
-			\hline
-				TOTAL & 2813.63 $\nu$s & 1687.81$\nu$s & 2295.5 $\nu$s & 459.19 $\nu$s \\
+				TAIL ACK & -- & -- & 1 $\mu$s & 0.25 $\mu$s \\
 			\hline
 			\hline
-				Theoretical physical throughput & 4.35 Mbit/s $\nu$s & 7.26 Mbit/s & 5.33 Mbit/s & 26.69 Mbit/s \\
+				TOTAL & 2813.63 $\mu$s & 1687.81$\mu$s & 2295.5 $\mu$s & 459.19 $\mu$s \\
+			\hline
+			\hline
+				Theoretical physical throughput & 4.35 Mbit/s $\mu$s & 7.26 Mbit/s & 5.33 Mbit/s & 26.69 Mbit/s \\
 			\hline
 			\hline
 				Theoretical physical throughput UDP & 4.17 Mbit/s & 6.96 Mbit/s & 5.12 Mbit/s & 25.61 Mbit/s \\
