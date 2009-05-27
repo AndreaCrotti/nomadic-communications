@@ -79,7 +79,7 @@
 	To calculate the theoretical throughput with a DATA size of 1470 bit we have to follow the two formulas written below:
 	
 	\begin{gather*}
-		\textrm{Throughput}_{FIS} = \\\\
+		\textrm{Throughput}_{phys} = \\\\
 		= \frac{ ( \textrm{DATA}_{bit} + \textrm{HEADER IP}_{bit} + \textrm{HEADER UDP}_{bit} + \textrm{HEADER MAC}_{bit} ) \times 8 }{ \textrm{FRAME}_{seconds} } = \\\\
 		= \frac{ 1532 \times 8 }{  \textrm{FRAME}_{seconds} } \\\\
 	\end{gather*}
@@ -97,7 +97,7 @@
 				 \hline
 				 & 5.5 Mbit/s & 11 Mbit/s & 6 Mbit/s & 54 Mbit/s \\
 			\hline
-				DIFS & 50 $\mu$ s & 50 ?s & 28 ?s & 28 ?s \\
+				DIFS & 50 $\mu$s & 50 $\mu$s & 28 $\mu$s & 28 $\mu$s \\
 			\hline
 				SIFS & 10 $\mu$s & 10 $\mu$s & 10 $\mu$s & 10 $\mu$s \\
 			\hline
