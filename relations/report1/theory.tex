@@ -78,17 +78,16 @@
     % \end{figure}
 	
 	To calculate the theoretical throughput with a DATA size of 1470 bit we have to follow the two formulas written below:
-	
-	\begin{gather*}
-		\textrm{Throughput}_{phys} = \\\\
-		= \frac{ ( \textrm{DATA}_{bit} + \textrm{HEADER IP}_{bit} + \textrm{HEADER UDP}_{bit} + \textrm{HEADER MAC}_{bit} ) \times 8 }{ \textrm{FRAME}_{seconds} } = \\\\
-		= \frac{ 1532 \times 8 }{  \textrm{FRAME}_{seconds} } \\\\
-	\end{gather*}
-	
-	\begin{gather*}
-		\textrm{Throughput}_{UDP} = \frac{ \textrm{DATA}_{bit} \times 8 }{ \textrm{FRAME}_{seconds} } = \frac{ 1470 \times 8 }{  \textrm{FRAME}_{seconds} } \\\\
-	\end{gather*}
-	
+	%
+	\begin{eqnarray*}
+		\lefteqn{\textrm{Throughput}_{phys} =} \\
+		&=& \frac{ ( \textrm{DATA}_{bit} + \textrm{HEADER IP}_{bit} + \textrm{HEADER UDP}_{bit} + \textrm{HEADER MAC}_{bit} ) \times 8 }{ \textrm{FRAME}_{seconds} } \\
+		&=& \frac{ 1532 \times 8 }{  \textrm{FRAME}_{seconds} }
+		\\\\
+		\lefteqn{\textrm{Throughput}_{UDP} =}\\
+		&=& \frac{ \textrm{DATA}_{bit} \times 8 }{ \textrm{FRAME}_{seconds} } = \frac{ 1470 \times 8 }{  \textrm{FRAME}_{seconds} }
+	\end{eqnarray*}
+	%
 	Table \ref{tbl:80211bgexample} shows an example theoretical throughput of the two standards at two different speeds.
 	
 	\begin{table}[h!]
@@ -141,11 +140,19 @@
 	802.11, in order to improve the performance, allows to adjust some parameters like Frag (Fragmentation Threshold) and RTS/CTS (Request To Send / Clear To Send).
 	
 	\begin{description}
-		\item[Fragmentation Threshold] is a technique witch divide a big packet into many small packets. These small packets can be transmitted more quickly into the medium (the air). On the one hand this technique works great avoid the collision but on the other hand it increase the overhead because of the packets header. The possible values range is from 256 to 2346.
+		\item[Fragmentation Threshold] is a technique witch divide a big packet into many small packets. These small packets can be transmitted more quickly into the medium (the air).
+			The advantage of this technique is that, in case of collision, not too much time is wasted.  But on the other hand it increase the overhead because of the repeated packets headers.
+			
+			The possible values for the fragmentation threshold range from 256 to 2346.
 	
 		\item[RTS Threshold] is the frame size above which an RTS/CTS handshake will be performed before attempting to transmit. The possible values range is from 256 to 2346.
 	
-		\item[RTS/CTS] is a control signal witch try to synchronize the communication. When a device send an RTS (Request To Send) signal this mean that it is ready to send data, in particular RTS/CTS asks for permission to transmit to reduce collisions, but adds considerable overhead. Disabling RTS/CTS can reduce overhead and latency in WLANs where all stations are close together, but can increase collisions and degrade performance in WLANs where stations are far apart and unable to sense each other to avoid collisions (``Hidden Nodes'', ``Hidden Terminal'').
+			\paragraph{RTS/CTS} is a control signal witch tries to synchronize the communication.
+			When a device sends an RTS (Request To Send) signal, this mean that it is ready to send data, in particular RTS/CTS asks for permission to transmit, in order to reduce collisions, and only sends the data after a positive reply by the receiver (CTS).
+
+			However, RTS/CTS adds considerable overhead.
+
+			Disabling RTS/CTS can reduce overhead and latency in WLANs where all stations are close together, but it can also increase collisions and degrade performance in WLANs where stations are far apart and unable to sense each other to avoid collisions (``Hidden Nodes'', ``Hidden Terminal'').
 	\end{description}
 
 % Calculate protocols upperbound limitations and similar things (report the formulas!).
