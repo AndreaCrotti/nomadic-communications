@@ -51,12 +51,12 @@
 				\item[Modulation BPSK, QPSK, 16QAM, 64QAM] 6, 9, 12, 18, 24, 36, 48, 54 Mbit/s
 			\end{description}
 	\end{itemize}
-
+%
 	% REWRITTEN  When a 802.11g device communicates with a 802.11b device it uses, in order to retrocomputability, DSSS  so it go down with DSSS speeds.
 	% TODO check, please:
 	When an 802.11g device communicates with an 802.11b device, it switches back to DSSS for backward compatibility. As a consequence, it must communicate with the slower speed of DSSS.
 
-	However more important than the physical throughput is the effective throughput, which is always lower in relation to the nominal bit rate.
+	However, more important than the physical throughput is the effective throughput, which is always lower in relation to the nominal bit rate.
 	In 802.11b, we can have a typical throughput of 4,3 Mbit/s over a 11 Mbit/s of channel capacity while in 802.11g we have a typical throuughput of 25 Mbit/s over a 54 Mbit/s of channel capacity. This is due to the overhead of the communication.
 	
 	The 802.11 standard basically defines two layers, a physical layer (PHY) and a media access control layer (MAC). To understand the reason behind the different throughputs, we have to analyze the MAC Frame Format (Figure \ref{mac_packet}).
