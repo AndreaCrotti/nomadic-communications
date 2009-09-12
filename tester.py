@@ -8,6 +8,7 @@ import subprocess
 import shutil
 import logging
 
+# FIXME: avoid such a long list of imports?
 from glob import glob
 from getopt import getopt
 from src.parse_iperf import *
@@ -265,7 +266,7 @@ class TestBattery(object):
 def usage():
     print """
     ./tester.py [-s|--simulate] <user> <conf1> <conf2>...
-    if no file are given in input it loads the configuration files "configs/test_\d\w.ini
+    if no file are given in input it loads the configuration files configs/test_\d\w.ini
     user is mandatory and will pick up the configuration from userconfs/*.ini
     """
     sys.exit(0)
